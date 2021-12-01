@@ -1,15 +1,13 @@
-{% set data = load_setup_py_data() %}
-
 package:
-  name: albumentations
-  version: {{ data['version'] }}
+  name: gdsfactory
+  version: 3.6.7
 
 source:
   path: ..
 
 build:
   number: 0
-  script: python setup.py install 
+  script: python setup.py install
 
 requirements:
   build:
@@ -20,8 +18,7 @@ requirements:
     - python>=3.7
     - numpy
 
-
 about:
-  home: {{ data['url'] }}
-  license: {{ data['license'] }}
-summary: {{ data['description'] }}
+  home: https://github.com/gdsfactory/gdsfactory
+  license: MIT
+summary: python libraries to generate GDS layouts
