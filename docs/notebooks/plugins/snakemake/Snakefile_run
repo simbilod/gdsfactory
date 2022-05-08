@@ -1,0 +1,14 @@
+import gdsfactory as gf
+import gdsfactory.simulation.gmeep as gm
+
+rule waveguide_MEEP:
+    # container:
+    #   "docker://joamatab/gdsfactory:latest"
+    output: filepath = "/home/simbil/debugging/snakemake_test.csv"
+    run:
+      c = gf.components.straight(length=5)
+      df = gm.write_sparameters_meep_mpi(c,
+                                      resolution=20,
+                                      filepath=output.filepath,
+                                      dirpath="/home/simbil/debugging/",
+                                      cores=6,)
