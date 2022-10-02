@@ -3,6 +3,7 @@ import pathlib
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from pydantic import BaseModel
+from processes import Deposit, Etch, Implant, Diffuse, Planarize
 
 module_path = pathlib.Path(__file__).parent.absolute()
 Layer = Tuple[int, int]
@@ -69,6 +70,10 @@ class LayerMap(BaseModel):
     SOURCE: Layer = (110, 0)
     MONITOR: Layer = (101, 0)
 
+    BOX: Layer = (997, 0)
+    SUB: Layer = (998, 0)
+    AIR: Layer = (999, 0)
+
     class Config:
         """pydantic config."""
 
@@ -107,20 +112,8 @@ class LayerLevel(BaseModel):
         zmin: height position where material starts in um.
         material: material name.
         sidewall_angle: in degrees with respect to normal.
-        info: simulation_info and other types of metadata.
-            mesh_order: lower mesh order (1) will have priority over higher
-                mesh order (2) in the regions where materials overlap.
-            refractive_index: refractive_index
-                can be int, complex or function that depends on wavelength (um).
-            type: grow, etch, implant, or background.
-            mode: octagon, taper, round.
-                https://gdsfactory.github.io/klayout_pyxs/DocGrow.html
-            into: etch into another layer.
-                https://gdsfactory.github.io/klayout_pyxs/DocGrow.html
-            doping_concentration: for implants.
-            resistiviy: for metals.
-            bias: in um for the etch.
-
+        process: list of subprocesses (see gdsfactory.processes) that would yield this LayerLevel
+        process_step: integer, order which process_list would be run when combining all layer subprocesses into one large process
     """
 
     layer: Tuple[int, int]
@@ -186,6 +179,46 @@ class LayerStack(BaseModel):
                 f"{level.layer[0]}/{level.layer[1]}: {level.zmin} {level.zmin+level.thickness}"
             )
 
+def get_wafer_generic(
+        thickness_wg: float = 220 * nm,
+        thickness_BOX: float = 2.0,
+        thickness_sub: float = 500.0,
+        thickness_air: float = 1000.0
+    ) --> LayerStack:
+    """Returns generic LayerStack wafer.
+
+    Args:
+        thickness_wg: waveguide thickness in um.
+        thickness_BOX: cladding thickness in um.
+    """
+    return LayerStack(
+        layers=dict(
+            core=LayerLevel(
+                layer=LAYER.WG,
+                thickness=thickness_wg,
+                zmin=0.0,
+                material="si",
+            ),
+            clad=LayerLevel(
+                layer=LAYER.BOX,
+                zmin=-1*thickness_BOX,
+                material="sio2",
+                thickness=thickness_BOX,
+            ),
+            clad=LayerLevel(
+                layer=LAYER.BOX,
+                zmin=-1*thickness_sub - thickness_BOX,
+                material="si",
+                thickness=thickness_sub,
+            ),
+            clad=LayerLevel(
+                layer=LAYER.AIR,
+                zmin=thickness_wg,
+                material="air",
+                thickness=thickness_air,
+            )
+        )
+    )
 
 def get_layer_stack_generic(
     thickness_wg: float = 220 * nm,
@@ -211,24 +244,41 @@ def get_layer_stack_generic(
                 thickness=thickness_wg,
                 zmin=0.0,
                 material="si",
-            ),
+                process=[Etch(layers_or=[LAYER.SLAB150, LAYER.SLAB90],
+                                positive_tone=False,
+                                depth=LAYER.WGCLAD-LAYER.SLAB150), 
+                            ],
+                process_step = 0,          
+                        ),
             clad=LayerLevel(
                 layer=LAYER.WGCLAD,
                 zmin=0.0,
                 material="sio2",
                 thickness=thickness_clad,
+                process=[Deposit(thickness=thickness_clad), Planarize()]
+                process_step = -1,
             ),
             slab150=LayerLevel(
                 layer=LAYER.SLAB150,
                 thickness=150e-3,
                 zmin=0,
                 material="si",
+                process=[Etch(  layers_xor=[LAYER.WG, LAYER.SLAB90],
+                                positive_tone=True,
+                                depth=LAYER.WGCLAD-LAYER.SLAB150), 
+                            ],
+                process_step=1,
             ),
             slab90=LayerLevel(
                 layer=LAYER.SLAB90,
                 thickness=90e-3,
                 zmin=0.0,
                 material="si",
+                process=[Etch(  layers_xor=[LAYER.WG, LAYER.SLAB150],
+                                positive_tone=True,
+                                depth=LAYER.WGCLAD-LAYER.SLAB90), 
+                            ],
+                process_step=2,
             ),
             nitride=LayerLevel(
                 layer=LAYER.WGN,
@@ -272,9 +322,14 @@ def get_layer_stack_generic(
                 zmin=thickness_wg + 1100e-3 + 750e-3 + 1.5,
                 material="Aluminum",
             ),
+            doping_N=LayerLevel(
+                layer=LAYER.N,
+                thickness=None,
+                zmin=None,
+                material=None,
+            ),
         )
     )
-
 
 LAYER_STACK = get_layer_stack_generic()
 
