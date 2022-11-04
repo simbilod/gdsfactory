@@ -242,7 +242,7 @@ def get_simulation(
             src=mp.GaussianSource(fcen, fwidth=frequency_width),
             size=size,
             center=center,
-            eig_band=source_mode_number,
+            eig_band=source_mode_number + 1,
             eig_parity=mp.NO_PARITY if is_3d else mp.EVEN_Y + mp.ODD_Z,
             eig_match_freq=True,
             eig_kpoint=-1 * mp.Vector3(x=1).rotate(mp.Vector3(z=1), angle_rad),
