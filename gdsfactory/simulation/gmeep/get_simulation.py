@@ -1,7 +1,7 @@
 """Returns simulation from component."""
 import inspect
 import warnings
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 
 import meep as mp
 import numpy as np
@@ -142,13 +142,14 @@ def get_simulation(
     wavelength = (wavelength_start + wavelength_stop) / 2
 
     wavelengths = np.linspace(wavelength_start, wavelength_stop, wavelength_points)
-    port_names = list(component_ref.ports.keys())
+    physical_port_names = list(component_ref.ports.keys())
 
-    if port_source_name not in port_names:
-        warnings.warn(f"port_source_name={port_source_name!r} not in {port_names}")
-        port_source = component_ref.get_ports_list()[0]
-        port_source_name = port_source.name
-        warnings.warn(f"Selecting port_source_name={port_source_name!r} instead.")
+    if physical_source_name not in physical_port_names:
+        raise ValueError(f"{physical_source_name} is not in the component ports: {physical_port_names}.")
+        # warnings.warn(f"port_source_name={physical_source_name} not in {physical_port_names}")
+        # port_source = component_ref.get_ports_list()[0]
+        # physical_source_name = f"{port_source.name}@0"
+        # warnings.warn(f"Selecting port_source_name={physical_source_name} instead.")
 
     assert isinstance(
         component, Component
