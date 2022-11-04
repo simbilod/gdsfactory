@@ -96,7 +96,7 @@ def parse_port_eigenmode_coeff(port_name: str, ports: Dict[str, Port], sim_dict:
 
     # Get port coeffs
     monitor_coeff = sim.get_eigenmode_coefficients(
-        monitors[port_name], [mode_number], kpoint_func=lambda f, n: kpoint
+        monitors[port_name], [1], kpoint_func=lambda f, n: kpoint
     )
 
     coeff_in = monitor_coeff.alpha[
@@ -115,7 +115,7 @@ def write_sparameters_meep(
     port_source_names: Optional[List[str]] = None,
     port_monitor_names: Optional[List[str]] = None,
     port_symmetries: Optional[PortSymmetries] = None,
-    resolution: int = 30,
+    resolution: int = 50,
     wavelength_start: float = 1.5,
     wavelength_stop: float = 1.6,
     wavelength_points: int = 50,
@@ -197,7 +197,7 @@ def write_sparameters_meep(
     Args:
         component: to simulate.
         resolution: in pixels/um (30: for coarse, 100: for fine).
-        port_source_names: list of ports to excite. Defaults to all.
+        port_source_names: list of ports to excite. Defaults to all fundamental modes of all physical ports..
         port_monitor_names: list of ports to monitor (for every source). Defaults to fundamental mode of all physical ports.
         port_symmetries: Dict to specify port symmetries, to save number of simulations.
         dirpath: directory to store Sparameters.
@@ -302,6 +302,23 @@ def write_sparameters_meep(
     filepath = pathlib.Path(filepath)
     filepath_sim_settings = filepath.with_suffix(".yml")
 
+    # Parse source ports
+    if not port_source_names:
+        port_source_names = []
+        for port_name in component.ports.keys():
+            port_source_names.append(f"{port_name}@0")
+
+    # Parse monitor ports
+    if not port_monitor_names:
+        port_monitor_names = []
+        for port_name in component.ports.keys():
+            port_monitor_names.append(f"{port_name}@0")
+
+    # Make sure the sources and detectors are compatible
+    parse_ports = all(elem in port_monitor_names for elem in port_source_names)
+    if not parse_ports:
+        raise ValueError("The requested monitor ports do not contain all the source ports.")
+
     # filepath_sim_settings.write_text(OmegaConf.to_yaml(sim_settings))
     # logger.info(f"Write simulation settings to {filepath_sim_settings!r}")
     # return filepath_sim_settings
@@ -361,8 +378,8 @@ def write_sparameters_meep(
     def sparameter_calculation(
         port_source_name: str,
         component: Component,
+        port_monitor_names: Optional[List] = port_monitor_names,
         port_symmetries: Optional[PortSymmetries] = port_symmetries,
-        port_names: List[str] = port_names,
         wavelength_start: float = wavelength_start,
         wavelength_stop: float = wavelength_stop,
         wavelength_points: int = wavelength_points,
@@ -375,6 +392,7 @@ def write_sparameters_meep(
         sim_dict = get_simulation(
             component=component,
             port_source_name=port_source_name,
+            port_monitor_names=port_monitor_names,
             resolution=resolution,
             wavelength_start=wavelength_start,
             wavelength_stop=wavelength_stop,
@@ -420,14 +438,18 @@ def write_sparameters_meep(
         source_entering, _ = parse_port_eigenmode_coeff(
             port_source_name, component.ports, sim_dict
         )
+        print(source_entering)
+
         # Get coefficients
-        for port_name in port_names:
+        for port_name in sim_dict["monitors"].keys():
             _, monitor_exiting = parse_port_eigenmode_coeff(
                 port_name, component.ports, sim_dict
             )
-            key = f"{port_name}@0,{port_source_name}@0"
+            key = f"{port_name},{port_source_name}"
             sp[key] = monitor_exiting / source_entering
 
+            print(monitor_exiting)
+    
         if bool(port_symmetries):
             for key, symmetries in port_symmetries.items():
                 for sym in symmetries:
@@ -453,13 +475,13 @@ def write_sparameters_meep(
 
         sp = sparameter_calculation(
             port_source_name=port_source_dict[n],
+            port_monitor_names=port_monitor_names,
             component=component,
             port_symmetries=port_symmetries,
             wavelength_start=wavelength_start,
             wavelength_stop=wavelength_stop,
             wavelength_points=wavelength_points,
             animate=animate,
-            port_names=port_names,
             **settings,
         )
         # Synchronize dicts
@@ -484,13 +506,13 @@ def write_sparameters_meep(
             sp.update(
                 sparameter_calculation(
                     port_source_name,
+                    port_monitor_names=port_monitor_names,
                     component=component,
                     port_symmetries=port_symmetries,
                     wavelength_start=wavelength_start,
                     wavelength_stop=wavelength_stop,
                     wavelength_points=wavelength_points,
                     animate=animate,
-                    port_names=port_names,
                     **settings,
                 )
             )
@@ -531,12 +553,29 @@ if __name__ == "__main__":
     sim_settings = dict(
         wavelength_start=wavelength_start, wavelength_stop=wavelength_stop
     )
-    c = gf.components.mmi1x2(cross_section=gf.cross_section.strip)
+    # c = gf.components.mmi1x2(cross_section=gf.cross_section.strip)
     # sp = write_sparameters_meep(c, run=False, is_3d=False, overwrite=True, **sim_settings)
 
-    sp = write_sparameters_meep_1x1(c, run=True, is_3d=False, port_source_names=["o1@0"], overwrite=True)
-    # monitor_ports_list=["o1@1", "o2@1"],
+    c = gf.components.straight(length=3, width=1)
+    sp = write_sparameters_meep_1x1(c, 
+                                    run=True, 
+                                    is_3d=False, 
+                                    # port_source_names=["o1@0","o2@0"],#, "o1@1"], 
+                                    # port_monitor_names=["o1@0","o2@0"],# "o1@1", "o2@0", "o2@1"], 
+                                    overwrite=True,
+                                    wavelength_start=1.5,
+                                    wavelength_stop=1.6,
+                                    wavelength_points=50,
+                                    )
 
+    import matplotlib.pyplot as plt
+
+    for key in sp.keys():
+        if key == 'wavelengths':
+            continue
+        plt.plot(sp["wavelengths"], np.abs(sp[key]), label=key)
+    plt.legend()
+    plt.show()
 
     # from gdsfactory.simulation.add_simulation_markers import add_simulation_markers
     # import gdsfactory.simulation as sim

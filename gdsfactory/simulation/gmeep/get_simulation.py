@@ -32,7 +32,7 @@ def get_simulation(
     tpml: float = 1.5,
     clad_material: str = "SiO2",
     is_3d: bool = False,
-    port_monitor_names: Optional[List(str)] = None,
+    port_monitor_names: Optional[List] = None,
     wavelength_start: float = 1.5,
     wavelength_stop: float = 1.6,
     wavelength_points: int = 50,
@@ -242,7 +242,7 @@ def get_simulation(
             src=mp.GaussianSource(fcen, fwidth=frequency_width),
             size=size,
             center=center,
-            eig_band=source_mode_number + 1,
+            eig_band=int(source_mode_number) + 1,
             eig_parity=mp.NO_PARITY if is_3d else mp.EVEN_Y + mp.ODD_Z,
             eig_match_freq=True,
             eig_kpoint=-1 * mp.Vector3(x=1).rotate(mp.Vector3(z=1), angle_rad),
@@ -266,8 +266,11 @@ def get_simulation(
 
     # Add port monitors dict
     monitors = {}
-    for port_name in component_ref.ports.keys():
-        port = component_ref.ports[port_name]
+
+    for port_monitor_name in port_monitor_names:
+        physical_monitor_name, monitor_mode_number = port_monitor_name.split("@")
+
+        port = component_ref.ports[physical_monitor_name]
         angle_rad = np.radians(port.orientation)
         width = port.width + 2 * port_margin
         size_x = width * abs(np.sin(angle_rad))
@@ -280,7 +283,7 @@ def get_simulation(
         # if monitor has a source move monitor inwards
         length = (
             -distance_source_to_monitors + port_source_offset
-            if port_name == port_source_name
+            if physical_monitor_name == port_source_name
             else port_monitor_offset
         )
         xy_shifted = move_polar_rad_copy(
@@ -289,7 +292,7 @@ def get_simulation(
         center = xy_shifted.tolist() + [0]  # (x, y, z=0)
         m = sim.add_mode_monitor(freqs, mp.ModeRegion(center=center, size=size))
         m.z = 0
-        monitors[port_name] = m
+        monitors[port_monitor_name] = m
     return dict(
         sim=sim,
         cell_size=cell_size,
@@ -306,7 +309,7 @@ settings_get_simulation = set(sig.parameters.keys()).union(settings_meep)
 
 
 if __name__ == "__main__":
-    c = gf.components.straight(length=2, width=0.5)
+    c = gf.components.straight(length=2, width=1)
     sim_dict = get_simulation(
         c,
         is_3d=False,
