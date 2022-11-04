@@ -58,10 +58,12 @@ def parse_port_eigenmode_coeff(port_name: str, ports: Dict[str, Port], sim_dict:
         sim_dict: simulation dict.
 
     """
-    if port_name not in ports:
-        raise ValueError(f"port = {port_name!r} not in {list(ports.keys())}.")
+    physical_port_name, mode_number = port_name.split("@")
 
-    orientation = ports[port_name].orientation
+    if physical_port_name not in ports:
+        raise ValueError(f"port = {physical_port_name!r} not in {list(ports.keys())}.")
+
+    orientation = ports[physical_port_name].orientation
 
     # Inputs
     sim = sim_dict["sim"]
@@ -94,7 +96,7 @@ def parse_port_eigenmode_coeff(port_name: str, ports: Dict[str, Port], sim_dict:
 
     # Get port coeffs
     monitor_coeff = sim.get_eigenmode_coefficients(
-        monitors[port_name], [1], kpoint_func=lambda f, n: kpoint
+        monitors[port_name], [mode_number], kpoint_func=lambda f, n: kpoint
     )
 
     coeff_in = monitor_coeff.alpha[
@@ -111,6 +113,7 @@ def parse_port_eigenmode_coeff(port_name: str, ports: Dict[str, Port], sim_dict:
 def write_sparameters_meep(
     component: ComponentSpec,
     port_source_names: Optional[List[str]] = None,
+    port_monitor_names: Optional[List[str]] = None,
     port_symmetries: Optional[PortSymmetries] = None,
     resolution: int = 30,
     wavelength_start: float = 1.5,
@@ -195,6 +198,7 @@ def write_sparameters_meep(
         component: to simulate.
         resolution: in pixels/um (30: for coarse, 100: for fine).
         port_source_names: list of ports to excite. Defaults to all.
+        port_monitor_names: list of ports to monitor (for every source). Defaults to fundamental mode of all physical ports.
         port_symmetries: Dict to specify port symmetries, to save number of simulations.
         dirpath: directory to store Sparameters.
         layer_stack: contains layer to thickness, zmin and material.
@@ -322,6 +326,7 @@ def write_sparameters_meep(
             port_monitor_offset=port_monitor_offset,
             port_source_offset=port_source_offset,
             is_3d=is_3d,
+            port_monitor_names=port_monitor_names,
             **settings,
         )
         sim = sim_dict["sim"]
@@ -345,7 +350,7 @@ def write_sparameters_meep(
 
     component_ref = component.ref()
     ports = component_ref.ports
-    port_names = [port.name for port in list(ports.values())]
+    port_names = [f"{port.name}@0" for port in list(ports.values())]
     port_source_names = port_source_names or port_names
     num_sims = len(port_source_names) - len(port_symmetries)
 
@@ -527,7 +532,11 @@ if __name__ == "__main__":
         wavelength_start=wavelength_start, wavelength_stop=wavelength_stop
     )
     c = gf.components.mmi1x2(cross_section=gf.cross_section.strip)
-    sp = write_sparameters_meep(c, run=False, is_3d=False, **sim_settings)
+    # sp = write_sparameters_meep(c, run=False, is_3d=False, overwrite=True, **sim_settings)
+
+    sp = write_sparameters_meep_1x1(c, run=True, is_3d=False, port_source_names=["o1@0"], overwrite=True)
+    # monitor_ports_list=["o1@1", "o2@1"],
+
 
     # from gdsfactory.simulation.add_simulation_markers import add_simulation_markers
     # import gdsfactory.simulation as sim

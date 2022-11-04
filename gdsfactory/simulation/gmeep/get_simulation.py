@@ -32,11 +32,12 @@ def get_simulation(
     tpml: float = 1.5,
     clad_material: str = "SiO2",
     is_3d: bool = False,
+    port_monitor_names: Optional[List(str)] = None,
     wavelength_start: float = 1.5,
     wavelength_stop: float = 1.6,
     wavelength_points: int = 50,
     dfcen: float = 0.2,
-    port_source_name: str = "o1",
+    port_source_name: str = "o1@0",
     port_margin: float = 3,
     distance_source_to_monitors: float = 0.2,
     port_source_offset: float = 0,
@@ -103,6 +104,7 @@ def get_simulation(
         wavelength_points: wavelength steps.
         dfcen: delta frequency.
         port_source_name: input port name.
+        port_monitor_names: list of ports to monitor (for every source). Defaults to fundamental mode of all physical ports.
         port_margin: margin on each side of the port.
         distance_source_to_monitors: in (um) source goes before.
         port_source_offset: offset between source GDS port and source MEEP port.
@@ -128,6 +130,8 @@ def get_simulation(
         gm.write_sparameters_meep(c, run=False)
 
     """
+    physical_source_name, source_mode_number = port_source_name.split("@")
+
     for setting in settings:
         if setting not in settings_meep:
             raise ValueError(f"{setting!r} not in {settings_meep}")
@@ -162,9 +166,9 @@ def get_simulation(
         if extend_ports_length
         else component
     )
+    gf.show(component_extended)
 
-    component_extended.show()
-    component_extended = component_extended.flatten()
+    component_extended.flatten()
 
     # geometry_center = [component_extended.x, component_extended.y]
     # geometry_center = [0, 0]
@@ -205,7 +209,7 @@ def get_simulation(
     frequency_width = dfcen * fcen
 
     # Add source
-    port = component_ref.ports[port_source_name]
+    port = component_ref.ports[physical_source_name]
     angle_rad = np.radians(port.orientation)
     width = port.width + 2 * port_margin
     size_x = width * abs(np.sin(angle_rad))
@@ -229,7 +233,7 @@ def get_simulation(
         direction = mp.Y
     else:
         raise ValueError(
-            f"Port source {port_source_name!r} orientation {port.orientation} "
+            f"Port source {physical_source_name!r} orientation {port.orientation} "
             "not 0, 90, 180, 270 degrees"
         )
 
