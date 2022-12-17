@@ -13,7 +13,7 @@ class OpticalMaterial:
         """Create optical material."""
         self.ureg = ureg
         if load_source is not None:
-            self.fit_index_from_refractiveindexinfo(
+            self.n, self.k = self.fit_index_from_refractiveindexinfo(
                 url=load_source, lda_min=lda_min, lda_max=lda_max, formula=formula
             )
         else:
@@ -39,8 +39,9 @@ class OpticalMaterial:
             lda_max=lda_max,
             formula=formula,
         )
-        self.n = lambda wl: self.refractive_index.n(wl / self.ureg("meters"))
-        self.k = lambda wl: self.refractive_index.k(wl / self.ureg("meters"))
+        return lambda wl: self.refractive_index.n(
+            wl / self.ureg("meters")
+        ), lambda wl: self.refractive_index.k(wl / self.ureg("meters"))
 
     def fit_index_from_wls_nk(self, wls, ns, ks=None):
         """Fit real and imaginary parts of the refractive to wavelength.
