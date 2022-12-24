@@ -1,5 +1,37 @@
 # [CHANGELOG](https://keepachangelog.com/en/1.0.0/)
 
+## 6.15.0
+
+- Add femwell mode solver [PR](https://github.com/gdsfactory/gdsfactory/pull/1032)
+- MEOW improvements [PR](https://github.com/gdsfactory/gdsfactory/pull/1033)
+
+## 6.14.1
+
+- fix bend_s width [issue](https://github.com/gdsfactory/gdsfactory/discussions/1028)
+
+## 6.14.0
+
+- fix tidy3d plugin [PR](https://github.com/gdsfactory/gdsfactory/pull/1011)
+- parse empty polygons uz meshing [PR](https://github.com/gdsfactory/gdsfactory/pull/1023)
+- add Crow variant with couplers [PR](https://github.com/gdsfactory/gdsfactory/pull/1021)
+- remove simphony [PR](https://github.com/gdsfactory/gdsfactory/pull/1024)
+
+## 6.13.0
+
+- Add z_to_bias processing in xy meshing [PR](https://github.com/gdsfactory/gdsfactory/pull/1011)
+- Add MEOW EME plugin [PR](https://github.com/gdsfactory/gdsfactory/pull/1015)
+- update tidy3d to 1.8.0
+
+## 6.12.0
+
+- Add coupled rings (CROW) [PR](https://github.com/gdsfactory/gdsfactory/pull/1009)
+- add LICENSE to pypi package [PR](https://github.com/gdsfactory/gdsfactory/pull/1010)
+
+## [6.11.0](https://github.com/gdsfactory/gdsfactory/pull/1007)
+
+- add option to register materials_index into a PDK.
+- tidy3d and meep can use the same material_index from the registered materials.
+
 ## 6.10.0
 
 - If sidewall, can specific at which height gds layer width equals structural width [PR](https://github.com/gdsfactory/gdsfactory/pull/994)

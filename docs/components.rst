@@ -392,7 +392,7 @@ bezier
 
   import gdsfactory as gf
 
-  c = gf.components.bezier(width=0.5, control_points=[[0.0, 0.0], [5.0, 0.0], [5.0, 2.0], [10.0, 2.0]], npoints=201, with_manhattan_facing_angles=True, cross_section='strip', with_bbox=True)
+  c = gf.components.bezier(control_points=[[0.0, 0.0], [5.0, 0.0], [5.0, 2.0], [10.0, 2.0]], npoints=201, with_manhattan_facing_angles=True, cross_section='strip', with_bbox=True)
   c.plot()
 
 
@@ -2270,6 +2270,36 @@ ring
 
 
 
+ring_crow
+----------------------------------------------------
+
+.. autofunction:: gdsfactory.components.ring_crow
+
+.. plot::
+  :include-source:
+
+  import gdsfactory as gf
+
+  c = gf.components.ring_crow()
+  c.plot()
+
+
+
+ring_crow_couplers
+----------------------------------------------------
+
+.. autofunction:: gdsfactory.components.ring_crow_couplers
+
+.. plot::
+  :include-source:
+
+  import gdsfactory as gf
+
+  c = gf.components.ring_crow_couplers()
+  c.plot()
+
+
+
 ring_double
 ----------------------------------------------------
 
@@ -2460,7 +2490,7 @@ spiral_racetrack
 
   import gdsfactory as gf
 
-  c = gf.components.spiral_racetrack(cross_section='strip')
+  c = gf.components.spiral_racetrack(min_radius=5, straight_length=10.0, spacings=[2, 2, 3, 3, 2, 2], cross_section='strip')
   c.plot()
 
 
@@ -3150,7 +3180,7 @@ version_stamp
 
   import gdsfactory as gf
 
-  c = gf.components.version_stamp(labels=['demo_label'], with_qr_code=False, layer='WG', pixel_size=1, version='6.8.2', text_size=10)
+  c = gf.components.version_stamp(labels=['demo_label'], with_qr_code=False, layer='WG', pixel_size=1, text_size=10)
   c.plot()
 
 

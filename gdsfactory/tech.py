@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel
 
-from gdsfactory.klayout_tech import LayerDisplayProperties
+from gdsfactory.materials import MaterialSpec
 
 module_path = pathlib.Path(__file__).parent.absolute()
 Layer = Tuple[int, int]
@@ -21,6 +21,8 @@ class LayerMap(BaseModel):
     Cambridge University Press 2015, page 353
     You will need to create a new LayerMap with your specific foundry layers.
     """
+
+    WAFER: Layer = (0, 0)
 
     WG: Layer = (1, 0)
     WGCLAD: Layer = (111, 0)
@@ -192,7 +194,7 @@ class LayerStack(BaseModel):
         self,
         klayout28: bool = True,
         print_to_console: bool = True,
-        layer_display_properties: Optional[LayerDisplayProperties] = None,
+        layer_display_properties=None,
         dbu: Optional[float] = 0.001,
     ) -> str:
         """Prints script for 2.5 view KLayout information.
@@ -288,12 +290,14 @@ def get_layer_stack_generic(
     return LayerStack(
         layers=dict(
             substrate=LayerLevel(
+                layer=LAYER.WAFER,
                 thickness=substrate_thickness,
                 zmin=-substrate_thickness - box_thickness,
                 material="si",
                 info={"mesh_order": 99},
             ),
             box=LayerLevel(
+                layer=LAYER.WAFER,
                 thickness=box_thickness,
                 zmin=-box_thickness,
                 material="sio2",
@@ -310,6 +314,7 @@ def get_layer_stack_generic(
             ),
             clad=LayerLevel(
                 # layer=LAYER.WGCLAD,
+                layer=LAYER.WAFER,
                 zmin=0.0,
                 material="sio2",
                 thickness=thickness_clad,
@@ -452,7 +457,11 @@ class Section(BaseModel):
         extra = "forbid"
 
 
-MaterialSpec = Union[str, float, complex, Tuple[float, float]]
+material_name_to_lumerical: Dict[str, MaterialSpec] = {
+    "si": "Si (Silicon) - Palik",
+    "sio2": "SiO2 (Glass) - Palik",
+    "sin": "Si3N4 (Silicon Nitride) - Phillip",
+}
 
 
 class SimulationSettingsLumericalFdtd(BaseModel):
@@ -492,11 +501,7 @@ class SimulationSettingsLumericalFdtd(BaseModel):
     frequency_dependent_profile: bool = True
     field_profile_samples: int = 15
     distance_source_to_monitors: float = 0.2
-    material_name_to_lumerical: Dict[str, MaterialSpec] = {
-        "si": "Si (Silicon) - Palik",
-        "sio2": "SiO2 (Glass) - Palik",
-        "sin": "Si3N4 (Silicon Nitride) - Phillip",
-    }
+    material_name_to_lumerical: Dict[str, MaterialSpec] = material_name_to_lumerical
 
     class Config:
         """pydantic basemodel config."""

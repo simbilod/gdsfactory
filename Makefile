@@ -3,11 +3,15 @@ help:
 	@echo 'make test:             Run tests with pytest'
 	@echo 'make test-force:       Rebuilds regression test'
 
-full: gdslib
-	pip install -e .[docs,dev,full,tidy3d,sipann,devsim]
+full: gdslib plugins
+	pip install -e .[docs,dev,full,gmsh,tidy3d,devsim,meow,sax]
 
 install: gdslib
 	pip install -e .[dev,full]
+	pre-commit install
+	gf tool install
+
+dev: full
 	pre-commit install
 	gf tool install
 
@@ -27,17 +31,16 @@ major:
 	python docs/write_components_doc.py
 
 plugins:
-	pip install -e .[tidy3d,sipann]
-	pip install jax jaxlib
 	mamba install pymeep=*=mpi_mpich_* -y
+	mamba install slepc4py=*=complex* -y
+	pip install -e .[tidy3d]
+	pip install jax jaxlib
 	pip install --upgrade "protobuf<=3.20.1"
+	pip install femwell
+	pip install scikit-fem[all] --upgrade
 
-plugins-debian:
-	sudo apt install libgl1-mesa-glx -y
-	pip install -e .[tidy3d,sipann]
-	pip install jax jaxlib
-	mamba install pymeep=*=mpi_mpich_* -y
-	pip install --upgrade "protobuf<=3.20.1"
+plugins-debian: plugins
+	sudo apt-get install -y python3-gmsh
 
 thermal:
 	mamba install python-gmsh
@@ -79,8 +82,15 @@ test-meep:
 test-tidy3d:
 	pytest gdsfactory/simulation/gtidy3d
 
+test-gmsh:
+	pytest gdsfactory/simulation/gmsh
+
+test-femwell:
+	pytest gdsfactory/simulation/fem
+
 test-plugins:
-	pytest gdsfactory/simulation/gmeep gdsfactory/simulation/modes gdsfactory/simulation/lumerical gdsfactory/simulation/simphony gdsfactory/simulation/gtidy3d
+	pytest gdsfactory/simulation/gmeep gdsfactory/simulation/modes gdsfactory/simulation/lumerical gdsfactory/simulation/gtidy3d gdsfactory/simulation/gmsh gdsfactory/tests/test_klayout
+	pip list > requirements.txt
 
 test-notebooks:
 	py.test --nbval notebooks
@@ -127,6 +137,7 @@ mypy:
 	mypy gdsfactory --ignore-missing-imports
 
 build:
+	rm -rf dist
 	pip install build
 	python -m build
 

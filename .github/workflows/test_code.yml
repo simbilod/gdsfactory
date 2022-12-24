@@ -81,7 +81,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          make gdslib plugins
+          make gdslib plugins-debian
           make install
       - name: Test with pytest
         env:
@@ -91,6 +91,10 @@ jobs:
           mkdir -p $HOME/.tidy3d
           echo ${{ secrets.TIDY3D_AUTH }} > $HOME/.tidy3d/auth.json
           make test-plugins
+      - uses: actions/upload-artifact@v3
+        with:
+          name: requirements
+          path: requirements.txt
   test_docs:
     needs: [pre-commit]
     runs-on: ${{ matrix.os }}
