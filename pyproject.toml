@@ -62,7 +62,7 @@ full = [
     "natsort",
     "networkx",
     "nlopt",
-    "pyglet<2",
+    "pyglet<3",
     "pygmsh",
     "rich",
     "sax==0.8.6",
