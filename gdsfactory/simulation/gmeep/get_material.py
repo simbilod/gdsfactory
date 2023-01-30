@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import partial
 from typing import Dict, Optional, Union
 
@@ -5,12 +7,8 @@ import meep as mp
 import meep.materials as mat
 import numpy as np
 
-# map materials layer_stack name with Meep material database name
-MATERIAL_NAME_TO_MEEP = {
-    "si": "Si",
-    "sin": "Si3N4_NIR",
-    "sio2": "SiO2",
-}
+from gdsfactory.materials import material_name_to_meep as material_name_to_meep_default
+from gdsfactory.pdk import get_material_index
 
 MATERIALS = [m for m in dir(mat) if not m.startswith("_")]
 
@@ -33,26 +31,30 @@ def get_material(
 
     Note:
         Using the built-in models can be problematic at low resolution.
-        If fields are NaN or Inf, increase resolution or use a non-dispersive model.
 
     """
     material_name_to_meep_new = material_name_to_meep or {}
-    material_name_to_meep = MATERIAL_NAME_TO_MEEP.copy()
+    material_name_to_meep = material_name_to_meep_default.copy()
     material_name_to_meep.update(**material_name_to_meep_new)
 
     materials = [material.lower() for material in MATERIALS]
     name = name.lower()
 
-    if name in material_name_to_meep.keys():
-        name_or_index = material_name_to_meep[name]
+    if dispersive:
+        if name in material_name_to_meep.keys():
+            name_or_index = material_name_to_meep[name]
+        else:
+            valid_materials = list(material_name_to_meep.keys())
+            raise ValueError(
+                f"name = {name!r} not in material_name_to_meep {valid_materials}"
+            )
     else:
-        valid_materials = list(material_name_to_meep.keys())
-        raise ValueError(
-            f"name = {name!r} not in material_name_to_meep {valid_materials}"
-        )
+        material_index = get_material_index(name, wavelength)
+        return mp.Medium(epsilon=material_index**2)
 
     if not isinstance(name_or_index, str):
         return mp.Medium(epsilon=name_or_index**2)
+
     name = name_or_index.lower()
     if name not in materials:
         raise ValueError(f"material, name = {name!r} not in {MATERIALS}")
@@ -60,12 +62,17 @@ def get_material(
     medium = getattr(mat, name)
     if dispersive:
         return medium
-    else:
+    try:
         return mp.Medium(epsilon=medium.epsilon(1 / wavelength)[0][0])
+    except ValueError as e:
+        print(f"material = {name!r} wavelength={wavelength}")
+        raise e
 
 
 def get_index(
-    wavelength: float = 1.55, name: str = "Si", dispersive: bool = False
+    wavelength: float = 1.55,
+    name: str = "Si",
+    dispersive: bool = False,
 ) -> float:
     """Returns refractive index from Meep's material database.
 
@@ -80,7 +87,11 @@ def get_index(
         If fields are NaN or Inf, increase resolution or use a non-dispersive model.
 
     """
-    medium = get_material(name=name, wavelength=wavelength, dispersive=dispersive)
+    medium = get_material(
+        name=name,
+        wavelength=wavelength,
+        dispersive=dispersive,
+    )
 
     epsilon_matrix = medium.epsilon(1 / wavelength)
     epsilon11 = epsilon_matrix[0][0]
@@ -89,7 +100,8 @@ def get_index(
 
 def test_index() -> None:
     n = get_index(name="sin")
-    assert np.isclose(n, 1.9962797317138816)
+    n_reference = 1.9983425877199599
+    assert np.isclose(n, n_reference), n
 
 
 si = partial(get_index, name="Si")
@@ -97,5 +109,6 @@ sio2 = partial(get_index, name="SiO2")
 
 
 if __name__ == "__main__":
-    n = get_index(name="sio2")
-    print(n, type(n))
+    test_index()
+    # n = get_index(name="Si", wavelength=1.31)
+    # print(n, type(n))

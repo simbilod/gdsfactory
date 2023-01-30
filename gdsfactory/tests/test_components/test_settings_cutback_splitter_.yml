@@ -11,7 +11,7 @@ settings:
       length_taper: 10.0
       taper:
         function: taper
-      width: 0.5
+      width: null
       width_mmi: 2.5
       width_taper: 1.0
       with_bbox: true
@@ -22,7 +22,7 @@ settings:
       length_taper: 10.0
       taper:
         function: taper
-      width: 0.5
+      width: null
       width_mmi: 2.5
       width_taper: 1.0
       with_bbox: true
@@ -45,8 +45,6 @@ settings:
     port2: o2
     port3: o3
     rows: 5
-    straight:
-      function: straight
     straight_length: null
   full:
     bend180:
@@ -62,8 +60,6 @@ settings:
     port2: o2
     port3: o3
     rows: 5
-    straight:
-      function: straight
     straight_length: null
   function_name: cutback_splitter
   info:
@@ -71,4 +67,3 @@ settings:
   info_version: 2
   module: gdsfactory.components.cutback_splitter
   name: mmi1x2_cutback_splitter
-version: 0.0.1

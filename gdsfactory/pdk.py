@@ -1,24 +1,25 @@
 """PDK stores layers, cross_sections, cell functions ..."""
 
-import logging
+from __future__ import annotations
 import pathlib
 import warnings
 from functools import partial
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 from omegaconf import DictConfig
 from pydantic import BaseModel, Field, validator
 
-from gdsfactory.components import cells
-from gdsfactory.config import sparameters_path
+from gdsfactory.config import PATH, logger
 from gdsfactory.containers import containers as containers_default
-from gdsfactory.cross_section import cross_sections
 from gdsfactory.events import Event
-from gdsfactory.layers import LAYER_COLORS, LayerColors
+from gdsfactory.generic_tech import get_generic_pdk
+from gdsfactory.materials import MaterialSpec
+from gdsfactory.materials import materials_index as materials_index_default
 from gdsfactory.read.from_yaml import from_yaml
 from gdsfactory.show import show
-from gdsfactory.tech import LAYER, LAYER_STACK, LayerStack
+from gdsfactory.symbols import floorplan_with_block_letters
+from gdsfactory.technology import LayerStack, LayerViews
 from gdsfactory.types import (
     CellSpec,
     Component,
@@ -33,10 +34,16 @@ from gdsfactory.types import (
     PathType,
 )
 
-logger = logging.root
 component_settings = ["function", "component", "settings"]
 cross_section_settings = ["function", "cross_section", "settings"]
 layers_required = ["DEVREC", "PORT", "PORTE"]
+
+constants = {
+    "fiber_array_spacing": 127.0,
+    "fiber_spacing": 50.0,
+    "fiber_input_to_output_spacing": 200.0,
+    "metal_spacing": 10.0,
+}
 
 
 class Pdk(BaseModel):
@@ -48,6 +55,8 @@ class Pdk(BaseModel):
         name: PDK name.
         cross_sections: dict of cross_sections factories.
         cells: dict of parametric cells that return Components.
+        symbols: dict of symbols names to functions.
+        default_symbol_factory:
         containers: dict of pcells that contain other cells.
         base_pdk: a pdk to copy from and extend.
         default_decorator: decorate all cells, if not otherwise defined on the cell.
@@ -56,28 +65,35 @@ class Pdk(BaseModel):
         layer_stack: maps name to layer numbers, thickness, zmin, sidewall_angle.
             if can also contain material properties
             (refractive index, nonlinear coefficient, sheet resistance ...).
-        layer_colors: includes layer name to color, opacity and pattern.
+        layer_views: includes layer name to color, opacity and pattern.
         sparameters_path: to store Sparameters simulations.
+        modes_path: to store Sparameters simulations.
         interconnect_cml_path: path to interconnect CML (optional).
         grid_size: in um. Defaults to 1nm.
         warn_off_grid_ports: raises warning when extruding paths with offgrid ports.
             For example, if you try to create a waveguide with 1.5nm length.
+        constants: dict of constants for the PDK.
 
     """
 
     name: str
     cross_sections: Dict[str, CrossSectionFactory] = Field(default_factory=dict)
     cells: Dict[str, ComponentFactory] = Field(default_factory=dict)
+    symbols: Dict[str, ComponentFactory] = Field(default_factory=dict)
+    default_symbol_factory: Callable = floorplan_with_block_letters
     containers: Dict[str, ComponentFactory] = containers_default
-    base_pdk: Optional["Pdk"] = None
+    base_pdk: Optional[Pdk] = None
     default_decorator: Optional[Callable[[Component], None]] = None
     layers: Dict[str, Layer] = Field(default_factory=dict)
     layer_stack: Optional[LayerStack] = None
-    layer_colors: Optional[LayerColors] = None
+    layer_views: Optional[LayerViews] = None
     sparameters_path: Optional[PathType] = None
+    modes_path: Optional[PathType] = PATH.modes
     interconnect_cml_path: Optional[PathType] = None
     grid_size: float = 0.001
     warn_off_grid_ports: bool = False
+    constants: Dict[str, Any] = constants
+    materials_index: Dict[str, MaterialSpec] = materials_index_default
 
     class Config:
         """Configuration."""
@@ -104,6 +120,8 @@ class Pdk(BaseModel):
     def activate(self) -> None:
         """Set current pdk to as the active pdk."""
         from gdsfactory.cell import clear_cache
+
+        logger.info(f"{self.name!r} PDK is now active")
 
         clear_cache()
 
@@ -265,7 +283,30 @@ class Pdk(BaseModel):
 
     def get_component(self, component: ComponentSpec, **kwargs) -> Component:
         """Returns component from a component spec."""
-        cells_and_containers = set(self.cells.keys()).union(set(self.containers.keys()))
+        return self._get_component(
+            component=component, cells=self.cells, containers=self.containers, **kwargs
+        )
+
+    def get_symbol(self, component: ComponentSpec, **kwargs) -> Component:
+        """Returns a component's symbol from a component spec."""
+        # this is a pretty rough first implementation
+        try:
+            self._get_component(
+                component=component, cells=self.symbols, containers={}, **kwargs
+            )
+        except ValueError:
+            component = self.get_component(component, **kwargs)
+            return self.default_symbol_factory(component)
+
+    def _get_component(
+        self,
+        component: ComponentSpec,
+        cells: Dict[str, Callable],
+        containers: Dict[str, Callable],
+        **kwargs,
+    ) -> Component:
+        """Returns component from a component spec."""
+        cells_and_containers = set(cells.keys()).union(set(containers.keys()))
 
         if isinstance(component, Component):
             if kwargs:
@@ -275,17 +316,13 @@ class Pdk(BaseModel):
             return component(**kwargs)
         elif isinstance(component, str):
             if component not in cells_and_containers:
-                cells = list(self.cells.keys())
-                containers = list(self.containers.keys())
+                cells = list(cells.keys())
+                containers = list(containers.keys())
                 raise ValueError(
                     f"{component!r} not in PDK {self.name!r} cells: {cells} "
                     f"or containers: {containers}"
                 )
-            cell = (
-                self.cells[component]
-                if component in self.cells
-                else self.containers[component]
-            )
+            cell = cells[component] if component in cells else containers[component]
             return cell(**kwargs)
         elif isinstance(component, (dict, DictConfig)):
             for key in component.keys():
@@ -299,23 +336,14 @@ class Pdk(BaseModel):
             cell_name = component.get("component", None)
             cell_name = cell_name or component.get("function")
             if not isinstance(cell_name, str) or cell_name not in cells_and_containers:
-                cells = list(self.cells.keys())
-                containers = list(self.containers.keys())
+                cells = list(cells.keys())
+                containers = list(containers.keys())
                 raise ValueError(
                     f"{cell_name!r} from PDK {self.name!r} not in cells: {cells} "
                     f"or containers: {containers}"
                 )
-            cell = (
-                self.cells[cell_name]
-                if cell_name in self.cells
-                else self.containers[cell_name]
-            )
+            cell = cells[cell_name] if cell_name in cells else containers[cell_name]
             component = cell(**settings)
-            component = (
-                self.default_decorator(component) or component
-                if self.default_decorator
-                else component
-            )
             return component
         else:
             raise ValueError(
@@ -328,9 +356,7 @@ class Pdk(BaseModel):
     ) -> CrossSection:
         """Returns cross_section from a cross_section spec."""
         if isinstance(cross_section, CrossSection):
-            if kwargs:
-                raise ValueError(f"Cannot apply {kwargs} to a defined CrossSection")
-            return cross_section
+            return cross_section.copy(**kwargs)
         elif callable(cross_section):
             return cross_section(**kwargs)
         elif isinstance(cross_section, str):
@@ -389,15 +415,30 @@ class Pdk(BaseModel):
                 f"{layer!r} needs to be a LayerSpec (string, int or Layer)"
             )
 
-    def get_layer_colors(self) -> LayerColors:
-        if self.layer_colors is None:
-            raise ValueError(f"layer_colors for Pdk {self.name!r} is None")
-        return self.layer_colors
+    def get_layer_views(self) -> LayerViews:
+        if self.layer_views is None:
+            raise ValueError(f"layer_views for Pdk {self.name!r} is None")
+        return self.layer_views
 
     def get_layer_stack(self) -> LayerStack:
         if self.layer_stack is None:
             raise ValueError(f"layer_stack for Pdk {self.name!r} is None")
         return self.layer_stack
+
+    def get_constant(self, key: str) -> Any:
+        if not isinstance(key, str):
+            return key
+        if key not in self.constants:
+            constants = list(self.constants.keys())
+            raise ValueError(f"{key!r} not in {constants}")
+        return self.constants[key]
+
+    def get_material_index(self, key: str, *args, **kwargs) -> float:
+        if key not in self.materials_index:
+            material_names = list(self.materials_index.keys())
+            raise ValueError(f"{key!r} not in {material_names}")
+        material = self.materials_index[key]
+        return material(*args, **kwargs) if callable(material) else material
 
     # _on_cell_registered = Event()
     # _on_container_registered: Event = Event()
@@ -421,16 +462,12 @@ class Pdk(BaseModel):
     #     return self._on_cross_section_registered
 
 
-GENERIC = Pdk(
-    name="generic",
-    cross_sections=cross_sections,
-    cells=cells,
-    layers=LAYER.dict(),
-    layer_stack=LAYER_STACK,
-    layer_colors=LAYER_COLORS,
-    sparameters_path=sparameters_path,
-)
-_ACTIVE_PDK = GENERIC
+GENERIC_PDK = get_generic_pdk()
+_ACTIVE_PDK = GENERIC_PDK
+
+
+def get_material_index(material: MaterialSpec, *args, **kwargs) -> Component:
+    return _ACTIVE_PDK.get_material_index(material, *args, **kwargs)
 
 
 def get_component(component: ComponentSpec, **kwargs) -> Component:
@@ -449,8 +486,8 @@ def get_layer(layer: LayerSpec) -> Layer:
     return _ACTIVE_PDK.get_layer(layer)
 
 
-def get_layer_colors() -> LayerColors:
-    return _ACTIVE_PDK.get_layer_colors()
+def get_layer_views() -> LayerViews:
+    return _ACTIVE_PDK.get_layer_views()
 
 
 def get_layer_stack() -> LayerStack:
@@ -465,10 +502,19 @@ def get_grid_size() -> float:
     return _ACTIVE_PDK.grid_size
 
 
+def get_constant(constant_name: Any) -> Any:
+    """If constant_name is a string returns a the value from the dict."""
+    return _ACTIVE_PDK.get_constant(constant_name)
+
+
 def get_sparameters_path() -> pathlib.Path:
     if _ACTIVE_PDK.sparameters_path is None:
         raise ValueError(f"{_ACTIVE_PDK.name!r} has no sparameters_path")
     return _ACTIVE_PDK.sparameters_path
+
+
+def get_modes_path() -> Optional[pathlib.Path]:
+    return _ACTIVE_PDK.modes_path
 
 
 def get_interconnect_cml_path() -> pathlib.Path:
@@ -497,6 +543,9 @@ on_yaml_cell_modified.add_handler(show)
 
 
 if __name__ == "__main__":
+    from gdsfactory.components import cells
+    from gdsfactory.cross_section import cross_sections
+
     # c = _ACTIVE_PDK.get_component("straight")
     # print(c.settings)
     # on_pdk_activated += print

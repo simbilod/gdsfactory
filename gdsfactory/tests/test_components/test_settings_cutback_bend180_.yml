@@ -10,8 +10,6 @@ settings:
     columns: 6
     rows: 6
     spacing: 3
-    straight:
-      function: straight
     straight_length: 5.0
   full:
     bend180:
@@ -21,8 +19,6 @@ settings:
     columns: 6
     rows: 6
     spacing: 3
-    straight:
-      function: straight
     straight_length: 5.0
   function_name: cutback_bend180
   info:
@@ -30,4 +26,3 @@ settings:
   info_version: 2
   module: gdsfactory.components.cutback_bend
   name: cutback_bend180
-version: 0.0.1

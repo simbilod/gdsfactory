@@ -3,14 +3,15 @@
 based on phidl.quickplotter.
 """
 
+from __future__ import annotations
+
 import sys
 from typing import Optional
 
-import gdspy
 import numpy as np
 
 from gdsfactory.component import Component
-from gdsfactory.component_layout import CellArray, Polygon, _rotate_points
+from gdsfactory.component_layout import Polygon, _rotate_points
 from gdsfactory.component_reference import ComponentReference
 
 _SUBPORT_RGB = (0, 120, 120)
@@ -51,16 +52,16 @@ except ImportError:
     QGraphicsView = object
     qt_imported = False
 
-_quickplot_options = dict(
-    show_ports=True,
-    show_subports=True,
-    label_aliases=False,
-    new_window=False,
-    blocking=False,
-    zoom_factor=1.4,
-    interactive_zoom=None,
-    fontsize=14,
-)
+_quickplot_options = {
+    "show_ports": True,
+    "show_subports": True,
+    "label_aliases": False,
+    "new_window": False,
+    "blocking": False,
+    "zoom_factor": 1.4,
+    "interactive_zoom": None,
+    "fontsize": 14,
+}
 
 
 def _zoom_factory(axis, scale_factor=1.4):
@@ -132,7 +133,7 @@ def set_quickplot_options(
     label_aliases: Optional[bool] = None,
     new_window: Optional[bool] = None,
     blocking: Optional[bool] = None,
-    zoom_factor: Optional[bool] = None,
+    zoom_factor: Optional[float] = None,
     interactive_zoom: Optional[bool] = None,
     fontsize: Optional[int] = None,
 ) -> None:
@@ -205,6 +206,8 @@ def quickplot(items, **kwargs):  # noqa: C901
     from matplotlib import pyplot as plt
 
     from gdsfactory.path import Path
+    from gdsfactory.pdk import get_layer_views
+    from gdsfactory.technology import LayerView
 
     quickplot_options = _quickplot_options.copy()
     quickplot_options.update(**kwargs)
@@ -232,21 +235,28 @@ def quickplot(items, **kwargs):  # noqa: C901
     ax.axvline(x=0, color="k", alpha=0.2, linewidth=1)
     bbox = None
 
-    # Iterate through each each Component/ComponentReference/Polygon
+    # Iterate through each Component/ComponentReference/Polygon
     if not isinstance(items, list):
         items = [items]
+    LAYER_VIEWS = get_layer_views()
+    all_lv_tuples = LAYER_VIEWS.get_layer_tuples()
     for item in items:
-        if isinstance(item, (Component, ComponentReference, CellArray)):
+        if isinstance(item, (Component, ComponentReference)):
             polygons_spec = item.get_polygons(by_spec=True, depth=None)
             for key in sorted(polygons_spec):
                 polygons = polygons_spec[key]
-                layerprop = _get_layerprop(layer=key[0], datatype=key[1])
+                layer_view = (
+                    LAYER_VIEWS.get_from_tuple(key)
+                    if key in all_lv_tuples
+                    else LayerView(layer=key)
+                )
+                colors = layer_view.get_color_dict()
                 new_bbox = _draw_polygons(
                     polygons,
                     ax,
-                    facecolor=layerprop["color"],
-                    edgecolor="k",
-                    alpha=layerprop["alpha"],
+                    facecolor=colors["fill_color"],
+                    edgecolor=colors["frame_color"],
+                    alpha=layer_view.get_alpha(),
                 )
                 bbox = _update_bbox(bbox, new_bbox)
             # If item is a Component or ComponentReference, draw ports
@@ -263,17 +273,16 @@ def quickplot(items, **kwargs):  # noqa: C901
                     bbox = _update_bbox(bbox, new_bbox)
             if isinstance(item, Component) and show_subports is True:
                 for sd in item.references:
-                    if not isinstance(sd, (gdspy.CellArray)):
-                        for port in sd.ports.values():
-                            new_bbox = _draw_port(
-                                ax,
-                                port,
-                                is_subport=True,
-                                color=np.array(_SUBPORT_RGB) / 255,
-                            )
-                            bbox = _update_bbox(bbox, new_bbox)
+                    for port in sd.ports.values():
+                        new_bbox = _draw_port(
+                            ax,
+                            port,
+                            is_subport=True,
+                            color=np.array(_SUBPORT_RGB) / 255,
+                        )
+                        bbox = _update_bbox(bbox, new_bbox)
             if isinstance(item, Component) and label_aliases is True:
-                for name, ref in item.aliases.items():
+                for name, ref in item.named_references.items():
                     ax.text(
                         ref.x,
                         ref.y,
@@ -285,14 +294,19 @@ def quickplot(items, **kwargs):  # noqa: C901
                         fontsize=quickplot_options["fontsize"],
                     )
         elif isinstance(item, Polygon):
-            polygons = item.polygons
-            layerprop = _get_layerprop(item.layers[0], item.datatypes[0])
+            layer_tuple = (item.layer, item.datatype)
+            layer_view = (
+                LAYER_VIEWS.get_from_tuple(layer_tuple)
+                if layer_tuple in all_lv_tuples
+                else LayerView(layer=layer_tuple)
+            )
+            colors = layer_view.get_color_dict()
             new_bbox = _draw_polygons(
-                polygons,
+                item.points,
                 ax,
-                facecolor=layerprop["color"],
-                edgecolor="k",
-                alpha=layerprop["alpha"],
+                facecolor=colors["fill_color"],
+                edgecolor=colors["frame_color"],
+                alpha=layer_view.get_alpha(),
             )
             bbox = _update_bbox(bbox, new_bbox)
         elif isinstance(item, Path):
@@ -355,41 +369,6 @@ def _update_bbox(bbox, new_bbox):
     if new_bbox[3] > bbox[3]:
         bbox[3] = new_bbox[3]  # ymin
     return bbox
-
-
-def _get_layerprop(layer, datatype):
-    from gdsfactory.pdk import get_layer_colors
-
-    # Colors generated from here: http://phrogz.net/css/distinct-colors.html
-    layer_colors = [
-        "#3dcc5c",
-        "#2b0fff",
-        "#cc3d3d",
-        "#e5dd45",
-        "#7b3dcc",
-        "#cc860c",
-        "#73ff0f",
-        "#2dccb4",
-        "#ff0fa3",
-        "#0ec2e6",
-        "#3d87cc",
-        "#e5520e",
-    ]
-    LAYER_COLORS = get_layer_colors()
-    _layer = (
-        LAYER_COLORS.get_from_tuple((layer, datatype))
-        if (layer, datatype) in LAYER_COLORS.get_layer_tuples()
-        else None
-    )
-    if _layer is not None:
-        color = _layer.color
-        alpha = _layer.alpha
-        if color is None:
-            color = layer_colors[np.mod(layer, len(layer_colors))]
-    else:
-        color = layer_colors[np.mod(layer, len(layer_colors))]
-        alpha = 0.6
-    return {"color": color, "alpha": alpha}
 
 
 def _draw_polygons(polygons, ax, **kwargs):
@@ -587,15 +566,22 @@ class Viewer(QGraphicsView):
 
         self.initialize()
 
-    def add_polygons(self, polygons, color="#A8F22A", alpha=1):
-        qcolor = QColor()
-        qcolor.setNamedColor(color)
-        qcolor.setAlphaF(alpha)
+    def add_polygons(
+        self, polygons, fill_color="#A8F22A", frame_color="#A8F22A", alpha=1.0
+    ):
+        qcolor_fill = QColor()
+        qcolor_fill.setNamedColor(fill_color)
+        qcolor_fill.setAlphaF(alpha)
+        qcolor_frame = QColor()
+        qcolor_frame.setNamedColor(frame_color)
+        qcolor_frame.setAlphaF(1.0)
+        qpen_frame = QPen(qcolor_frame, 0)
         for points in polygons:
             qpoly = QPolygonF([QPointF(p[0], p[1]) for p in points])
             scene_poly = self.scene.addPolygon(qpoly)
-            scene_poly.setBrush(qcolor)
-            scene_poly.setPen(self.pen)
+            scene_poly.setBrush(qcolor_fill)
+            scene_poly.setPen(qpen_frame)
+
             self.scene_polys.append(scene_poly)
             # Update custom bounding box
             sr = scene_poly.sceneBoundingRect()
@@ -951,6 +937,9 @@ class Viewer(QGraphicsView):
 
 def quickplot2(item_list, *args, **kwargs):
     """QT plot."""
+    from gdsfactory.pdk import get_layer_views
+    from gdsfactory.technology import LayerView
+
     if not qt_imported:
         raise ImportError(
             "quickplot2 tried to import PyQt5 but it failed. gdsfactory will"
@@ -968,42 +957,56 @@ def quickplot2(item_list, *args, **kwargs):
     viewer.initialize()
     if not isinstance(item_list, (list, tuple)):
         item_list = [item_list]
+    LAYER_VIEWS = get_layer_views()
     for element in item_list:
         if isinstance(
             element,
             (
                 Component,
                 ComponentReference,
-                gdspy.CellArray,
             ),
         ):
             # Draw polygons in the element
             polygons_spec = element.get_polygons(by_spec=True, depth=None)
             for key in sorted(polygons_spec):
                 polygons = polygons_spec[key]
-                layerprop = _get_layerprop(layer=key[0], datatype=key[1])
+                layer_view = (
+                    LAYER_VIEWS.get_from_tuple(key)
+                    if key in LAYER_VIEWS
+                    else LayerView(layer=key)
+                )
+                colors = layer_view.get_color_dict()
                 viewer.add_polygons(
-                    polygons, color=layerprop["color"], alpha=layerprop["alpha"]
+                    polygons,
+                    fill_color=colors["fill_color"],
+                    frame_color=colors["frame_color"],
+                    alpha=layer_view.get_alpha(),
                 )
             # If element is a Component, draw ports and aliases
             if isinstance(element, Component):
                 for ref in element.references:
-                    if not isinstance(ref, gdspy.CellArray):
-                        for port in ref.ports.values():
-                            viewer.add_port(port, is_subport=True)
+                    for port in ref.ports.values():
+                        viewer.add_port(port, is_subport=True)
                 for port in element.ports.values():
                     viewer.add_port(port)
-                    viewer.add_aliases(element.aliases)
+                    viewer.add_aliases(element.named_references)
             # If element is a ComponentReference, draw ports as subports
             if isinstance(element, ComponentReference):
                 for port in element.ports.values():
                     viewer.add_port(port, is_subport=True)
         elif isinstance(element, (Polygon)):
-            layerprop = _get_layerprop(
-                layer=element.layers[0], datatype=element.datatypes[0]
+            layer_tuple = (element.layer, element.datatype)
+            layer_view = (
+                LAYER_VIEWS.get_from_tuple(layer_tuple)
+                if layer_tuple in LAYER_VIEWS
+                else LayerView(layer=layer_tuple)
             )
+            colors = layer_view.get_color_dict()
             viewer.add_polygons(
-                element.polygons, color=layerprop["color"], alpha=layerprop["alpha"]
+                element.polygons,
+                fill_color=colors["fill_color"],
+                frame_color=colors["frame_color"],
+                alpha=layer_view.get_alpha(),
             )
     viewer.finalize()
     viewer.reset_view()
@@ -1014,10 +1017,14 @@ def quickplot2(item_list, *args, **kwargs):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     import gdsfactory as gf
 
     # set_quickplot_options(label_aliases=True, show_ports=False, show_subports=False)
-    c = gf.components.mzi()
-    # c.plotqt()
+    c = gf.components.straight_pn()
+    c.plotqt()
     # c.plot()
+    c.show()
     quickplot(c, show_ports=False, show_subports=False, label_aliases=True)
+    plt.show()

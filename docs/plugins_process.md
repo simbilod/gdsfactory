@@ -1,8 +1,4 @@
-# Plugins: Process simulators
-
-For TCAD simulators charon and DEVIM are the most populars.
-
-
+# Plugins: Device simulators
 
 ```{eval-rst}
 .. toctree::
@@ -10,5 +6,8 @@ For TCAD simulators charon and DEVIM are the most populars.
    :titlesonly:
    :caption: Process simulators:
 
+   notebooks/plugins/thermal/thermal.ipynb
    notebooks/plugins/devsim/01_pin_waveguide.ipynb
+   notebooks/plugins/tcad/02_analytical_process.ipynb
+   notebooks/plugins/tcad/03_numerical_implantation.ipynb
 ```

@@ -1,5 +1,7 @@
 """Compute and write Sparameters using Meep in an MPI pool."""
 
+from __future__ import annotations
+
 import multiprocessing
 import pathlib
 import shutil
@@ -24,7 +26,7 @@ from gdsfactory.simulation.gmeep.write_sparameters_meep import remove_simulation
 from gdsfactory.simulation.gmeep.write_sparameters_meep_mpi import (
     write_sparameters_meep_mpi,
 )
-from gdsfactory.tech import LayerStack
+from gdsfactory.technology import LayerStack
 
 ncores = multiprocessing.cpu_count()
 

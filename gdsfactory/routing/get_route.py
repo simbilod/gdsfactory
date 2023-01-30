@@ -32,8 +32,11 @@ To generate a straight route:
 - length: a float with the length of the route
 
 """
+from __future__ import annotations
+
 from functools import partial
 from typing import Callable, Optional, Union
+from pydantic import validate_arguments
 
 import numpy as np
 
@@ -44,7 +47,7 @@ from gdsfactory.components.straight import straight as straight_function
 from gdsfactory.components.taper import taper as taper_function
 from gdsfactory.components.via_corner import via_corner
 from gdsfactory.components.wire import wire_corner
-from gdsfactory.cross_section import metal2, metal3, strip
+from gdsfactory.cross_section import metal2, metal3
 from gdsfactory.port import Port
 from gdsfactory.routing.manhattan import round_corners, route_manhattan
 from gdsfactory.types import (
@@ -56,6 +59,7 @@ from gdsfactory.types import (
 )
 
 
+@validate_arguments
 def get_route(
     input_port: Port,
     output_port: Port,
@@ -149,7 +153,7 @@ get_route_electrical = partial(
     bend=wire_corner,
     start_straight_length=10,
     end_straight_length=10,
-    cross_section=metal3,
+    cross_section="metal_routing",
     taper=None,
     min_straight_length=2.0,
 )
@@ -176,7 +180,7 @@ def get_route_from_waypoints(
     bend: Callable = bend_euler,
     straight: Callable = straight_function,
     taper: Optional[Callable] = taper_function,
-    cross_section: CrossSectionSpec = strip,
+    cross_section: CrossSectionSpec = "strip",
     **kwargs,
 ) -> Route:
     """Returns a route formed by the given waypoints with bends instead of \
@@ -269,7 +273,7 @@ def get_route_from_waypoints(
 
 
 get_route_from_waypoints_electrical = gf.partial(
-    get_route_from_waypoints, bend=wire_corner, cross_section=metal3
+    get_route_from_waypoints, bend=wire_corner, cross_section="metal_routing"
 )
 
 get_route_from_waypoints_electrical_m2 = gf.partial(
@@ -291,34 +295,35 @@ if __name__ == "__main__":
     # cc = c.add(route.references)
     # cc.show(show_ports=True)
 
-    c = gf.Component("multi-layer")
-    ptop = c << gf.components.pad_array()
-    pbot = c << gf.components.pad_array(orientation=90)
+    # c = gf.Component("multi-layer")
+    # ptop = c << gf.components.pad_array()
+    # pbot = c << gf.components.pad_array(orientation=90)
 
-    ptop.movex(300)
-    ptop.movey(300)
-    route = get_route_electrical_multilayer(
-        ptop.ports["e11"],
-        pbot.ports["e11"],
-        end_straight_length=100,
-    )
-    c.add(route.references)
-    c.show()
-
-    # import gdsfactory as gf
-
-    # c = gf.Component("sample_connect")
-    # mmi1 = c << gf.components.mmi1x2()
-    # mmi2 = c << gf.components.mmi1x2()
-    # mmi2.move((200, 50))
-
-    # route = gf.routing.get_route(
-    #     mmi1.ports["o3"],
-    #     mmi2.ports["o1"],
-    #     cross_section=gf.cross_section.strip,
-    #     auto_widen=True,
-    #     width_wide=2,
-    #     auto_widen_minimum_length=100,
+    # ptop.movex(300)
+    # ptop.movey(300)
+    # route = get_route_electrical_multilayer(
+    #     ptop.ports["e11"],
+    #     pbot.ports["e11"],
+    #     end_straight_length=100,
     # )
     # c.add(route.references)
     # c.show()
+
+    import gdsfactory as gf
+
+    c = gf.Component("sample_connect")
+    mmi1 = c << gf.components.mmi1x2()
+    mmi2 = c << gf.components.mmi1x2()
+    mmi2.move((200, 50))
+
+    route = gf.routing.get_route(
+        mmi1.ports["o3"],
+        mmi2.ports["o1"],
+        cross_section=gf.cross_section.strip(),
+        auto_widen=True,
+        width_wide=2,
+        auto_widen_minimum_length=100,
+        radius=30,
+    )
+    c.add(route.references)
+    c.show()

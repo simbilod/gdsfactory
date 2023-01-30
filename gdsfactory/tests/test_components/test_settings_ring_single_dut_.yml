@@ -43,8 +43,6 @@ settings:
     length_y: 0
     port_name: o1
     radius: 5.0
-    straight:
-      function: straight
     with_component: true
   full:
     bend:
@@ -60,8 +58,6 @@ settings:
     length_y: 0
     port_name: o1
     radius: 5.0
-    straight:
-      function: straight
     with_component: true
   function_name: ring_single_dut
   info:
@@ -71,4 +67,3 @@ settings:
   info_version: 2
   module: gdsfactory.components.ring_single_dut
   name: taper_width23_ring_single_dut
-version: 0.0.1

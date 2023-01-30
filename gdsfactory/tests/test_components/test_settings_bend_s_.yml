@@ -28,7 +28,6 @@ settings:
       end_angle: null
       npoints: 201
       start_angle: null
-      width: 0.5
       with_bbox: true
       with_manhattan_facing_angles: true
     full:
@@ -45,7 +44,6 @@ settings:
       end_angle: null
       npoints: 99
       start_angle: null
-      width: 0.5
       with_bbox: true
       with_manhattan_facing_angles: true
     function_name: bezier
@@ -78,4 +76,3 @@ settings:
   info_version: 2
   module: gdsfactory.components.bend_s
   name: bezier_7020f7b9_bend_s
-version: 0.0.1

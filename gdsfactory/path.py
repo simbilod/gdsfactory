@@ -1,11 +1,12 @@
 """You can define a path with a list of points combined with a cross-section.
 
 A path can be extruded using any CrossSection returning a Component
+The CrossSection defines the layer numbers, widths and offsets
 
-The CrossSection defines the layer numbers, widths and offsetts
-
-Based on phidl.path
+Adapted from PHIDL https://github.com/amccaugh/phidl/ by Adam McCaughan
 """
+
+from __future__ import annotations
 
 import hashlib
 import warnings
@@ -13,7 +14,6 @@ from collections.abc import Iterable
 from typing import Callable, Optional, Union
 
 import numpy as np
-import shapely.ops
 from numpy import mod, pi
 
 from gdsfactory import snap
@@ -81,8 +81,8 @@ class Path(_GeometryHelper):
                 self.append(path)
             else:
                 raise ValueError(
-                    "Path() the `path` argument must be either "
-                    "blank, a Path object, an array-like[N][2] list of points, or a list of these"
+                    "Path() the `path` argument must be either blank, a path Object, "
+                    "an array-like[N][2] list of points, or a list of these"
                 )
 
     def __len__(self):
@@ -99,13 +99,14 @@ class Path(_GeometryHelper):
         return np.array(bbox)
 
     def append(self, path):
-        """Attach input path to the end of this object.
+        """Attach Path to the end of this Path.
+
         The input path automatically rotates and translates such that it continues
         smoothly from the previous segment.
 
         Args:
             path : Path, array-like[N][2], or list of Paths
-                The input path that will be appended
+                The input path that will be appended.
         """
         # If appending another Path, load relevant variables
         if isinstance(path, Path):
@@ -232,6 +233,7 @@ class Path(_GeometryHelper):
 
     def mirror(self, p1: Float2 = (0, 1), p2: Float2 = (0, 0)):
         """Mirrors the Path across the line formed between the two specified points.
+
         ``points`` may be input as either single points [1,2]
         or array-like[N][2], and will return in kind.
 
@@ -251,7 +253,7 @@ class Path(_GeometryHelper):
         self, points, offset_distance, start_angle, end_angle
     ):
         """Creates a offset curve (but does not account for cusps etc)\
-        by computing the centerpoint offset of the supplied x and y points"""
+        by computing the centerpoint offset of the supplied x and y points."""
         new_points = np.array(points, dtype=np.float64)
         dx = np.diff(points[:, 0])
         dy = np.diff(points[:, 1])
@@ -276,7 +278,7 @@ class Path(_GeometryHelper):
 
     def _parametric_offset_curve(self, points, offset_distance, start_angle, end_angle):
         """Creates a parametric offset (does not account for cusps etc) \
-        by using gradient of the supplied x and y points"""
+        by using gradient of the supplied x and y points."""
         x = points[:, 0]
         y = points[:, 1]
         dxdt = np.gradient(x)
@@ -291,8 +293,8 @@ class Path(_GeometryHelper):
         y_offset = y - offset_distance * dxdt / np.sqrt(dydt**2 + dxdt**2)
         return np.array([x_offset, y_offset]).T
 
-    def length(self):
-        """Returns the cumulative length (arc length) of the path."""
+    def length(self) -> float:
+        """Return cumulative length."""
         x = self.points[:, 0]
         y = self.points[:, 1]
         dx = np.diff(x)
@@ -300,14 +302,14 @@ class Path(_GeometryHelper):
         return np.sum(np.sqrt((dx) ** 2 + (dy) ** 2))
 
     def curvature(self):
-        """Calculates the curvature of the Path.
+        """Calculates Path curvature.
 
         The curvature is numerically computed so areas where the curvature
         jumps instantaneously (such as between an arc and a straight segment)
         will be slightly interpolated, and sudden changes in point density
         along the curve can cause discontinuities.
 
-        Returns
+        Returns:
             s : array-like[N]
                 The arc-length of the Path
             K : array-like[N]
@@ -330,19 +332,15 @@ class Path(_GeometryHelper):
         K = np.gradient(theta, s, edge_order=2)
         return s, K
 
-    def hash_geometry(self, precision=1e-4):
+    def hash_geometry(self, precision: float = 1e-4) -> str:
         """Computes an SHA1 hash of the points in the Path and the start_angle and end_angle.
 
         Args:
-            precision: Roudning precision for the the objects in the Component.  For instance,
+            precision: Rounding precision for the the objects in the Component.  For instance,
                 a precision of 1e-2 will round a point at (0.124, 1.748) to (0.12, 1.75)
 
         Returns:
             str Hash result in the form of an SHA1 hex digest string.
-
-        Notes
-        -----
-        Algorithm:
 
         .. code::
 
@@ -373,11 +371,12 @@ class Path(_GeometryHelper):
 
     @classmethod
     def __get_validators__(cls):
+        """For pydantic."""
         yield cls._validate
 
     @classmethod
     def _validate(cls, v):
-        """Pydantic path validator."""
+        """Pydantic Path validator."""
         assert isinstance(v, Path), f"TypeError, Got {type(v)}, expecting Path"
         return v
 
@@ -385,7 +384,16 @@ class Path(_GeometryHelper):
         return self.hash_geometry()
 
     def plot(self) -> None:
-        """Plot path in matplotlib."""
+        """Plot path in matplotlib.
+
+        .. plot::
+            :include-source:
+
+            import gdsfactory as gf
+
+            p = gf.path.euler(radius=10)
+            p.plot()
+        """
         from gdsfactory.quickplotter import quickplot
 
         return quickplot(self)
@@ -403,7 +411,7 @@ class Path(_GeometryHelper):
         """Returns Component by extruding a Path with a CrossSection.
 
         A path can be extruded using any CrossSection returning a Component
-        The CrossSection defines the layer numbers, widths and offsetts.
+        The CrossSection defines the layer numbers, widths and offsets.
 
         Args:
             p: a path is a list of points (arc, straight, euler).
@@ -416,6 +424,15 @@ class Path(_GeometryHelper):
               polygon by more than the value listed here will be removed.
             shear_angle_start: an optional angle to shear the starting face by (in degrees).
             shear_angle_end: an optional angle to shear the ending face by (in degrees).
+
+        .. plot::
+            :include-source:
+
+            import gdsfactory as gf
+
+            p = gf.path.euler(radius=10)
+            c = p.extrude(layer=(1, 0), width=0.5)
+            c.plot()
         """
         return extrude(
             p=self,
@@ -480,6 +497,86 @@ def transition_exponential(y1, y2, exp=0.5):
     return lambda t: y1 + (y2 - y1) * t**exp
 
 
+adiabatic_polyfit_TE1550SOI_220nm = np.array(
+    [
+        1.02478963e-09,
+        -8.65556534e-08,
+        3.32415694e-06,
+        -7.68408985e-05,
+        1.19282177e-03,
+        -1.31366332e-02,
+        1.05721429e-01,
+        -6.31057637e-01,
+        2.80689677e00,
+        -9.26867694e00,
+        2.24535191e01,
+        -3.90664800e01,
+        4.71899278e01,
+        -3.74726005e01,
+        1.77381560e01,
+        -1.12666286e00,
+    ]
+)
+
+
+def transition_adiabatic(
+    w1: float,
+    w2: float,
+    neff_w,
+    wavelength: float = 1.55,
+    alpha: float = 1,
+    max_length: float = 200,
+    num_points_ODE: int = 2000,
+):
+    """Returns the points for an optimal adiabatic transition for well-guided modes.
+
+    Args:
+        w1: start width in um.
+        w2: end width in um.
+        neff_w: a callable that returns the effective index as a function of width
+            By default, use a compact model of neff(y) for fundamental 1550 nm TE mode of 220nm-thick
+            core with 3.45 index, fully clad with 1.44 index. Many coefficients are needed to capture the behaviour.
+        wavelength: wavelength, in same units as widths
+        alpha: parameter that scales the rate of width change
+                - closer to 0 means longer and more adiabatic;
+                - 1 is the intuitive limit beyond which higher order modes are excited;
+                - [2] reports good performance up to 1.4 for fundamental TE in SOI (for multiple core thicknesses)
+        max_length: maximum length in um.
+        num_points_ODE: number of samplings points for the ODE solve.
+
+    References:
+        [1] Burns, W. K., et al. "Optical waveguide parabolic coupling horns."
+            Appl. Phys. Lett., vol. 30, no. 1, 1 Jan. 1977, pp. 28-30, doi:10.1063/1.89199.
+        [2] Fu, Yunfei, et al. "Efficient adiabatic silicon-on-insulator waveguide taper."
+            Photonics Res., vol. 2, no. 3, 1 June 2014, pp. A41-A44, doi:10.1364/PRJ.2.000A41.
+    """
+    # Define ODE
+    def dWdx(w, x, neff_w, wavelength, alpha):
+        return alpha * wavelength / (neff_w(w) * w)
+
+    # Parse input
+    if w2 < w1:
+        wmin = w2
+        wmax = w1
+        order = -1
+    else:
+        wmin = w1
+        wmax = w2
+        order = 1
+
+    # Solve ODE
+    x = np.linspace(0, max_length, num_points_ODE)
+    from scipy.integrate import odeint
+
+    sol = odeint(dWdx, wmin, x, args=(neff_w, wavelength, alpha))
+
+    # Extract optimal curve
+    xs = x[np.where(sol[:, 0] < wmax)]
+    ws = sol[:, 0][np.where(sol[:, 0] < wmax)]
+
+    return xs, ws[::order]
+
+
 def transition(
     cross_section1: CrossSection,
     cross_section2: CrossSection,
@@ -506,8 +603,8 @@ def transition(
 
     if not X1.aliases or not X2.aliases:
         raise ValueError(
-            """transition() found no named sections in one
-        or both inputs (cross_section1/cross_section2)."""
+            "transition() found no named sections in one "
+            "or both inputs (cross_section1/cross_section2)."
         )
 
     layers1 = {get_layer(section.layer) for section in X1.sections}
@@ -522,57 +619,72 @@ def transition(
         )
 
     sections = []
-    for alias in X1.aliases.keys():
-        if alias in X2.aliases:
-            section1 = X1.aliases[alias]
-            section2 = X2.aliases[alias]
 
-            offset1 = section1.offset
-            offset2 = section2.offset
-            width1 = section1.width
-            width2 = section2.width
+    sections1 = [
+        X1.aliases[alias] for alias in X1.aliases.keys() if alias in X2.aliases
+    ]
+    sections2 = [
+        X2.aliases[alias] for alias in X2.aliases.keys() if alias in X1.aliases
+    ]
 
-            if callable(offset1):
-                offset1 = offset1(1)
-            if callable(offset2):
-                offset2 = offset2(0)
-            if callable(width1):
-                width1 = width1(1)
-            if callable(width2):
-                width2 = width2(0)
+    if X1.cladding_layers:
+        sections1 += [
+            Section(width=X1.width + 2 * offset, layer=layer)
+            for offset, layer in zip(X1.cladding_offsets, X2.cladding_layers)
+        ]
+    if X2.cladding_layers:
+        sections2 += [
+            Section(width=X2.width + 2 * offset, layer=layer)
+            for offset, layer in zip(X2.cladding_offsets, X2.cladding_layers)
+        ]
 
-            offset_fun = _sinusoidal_transition(offset1, offset2)
+    for section1, section2 in zip(sections1, sections2):
+        offset1 = section1.offset
+        offset2 = section2.offset
+        width1 = section1.width
+        width2 = section2.width
 
-            if width_type == "linear":
-                width_fun = _linear_transition(width1, width2)
-            elif width_type == "sine":
-                width_fun = _sinusoidal_transition(width1, width2)
-            elif width_type == "parabolic":
-                width_fun = _parabolic_transition(width1, width2)
-            else:
-                raise ValueError(
-                    f"width_type={width_type!r} must be {'sine','linear','parabolic'}"
-                )
+        if callable(offset1):
+            offset1 = offset1(1)
+        if callable(offset2):
+            offset2 = offset2(0)
+        if callable(width1):
+            width1 = width1(1)
+        if callable(width2):
+            width2 = width2(0)
 
-            if section1.layer != section2.layer:
-                hidden = True
-                layer1 = get_layer(section1.layer)
-                layer2 = get_layer(section2.layer)
-                layer = (layer1, layer2)
-            else:
-                hidden = False
-                layer = get_layer(section1.layer)
+        offset_fun = _sinusoidal_transition(offset1, offset2)
 
-            s = Section(
-                width=width_fun,
-                offset=offset_fun,
-                layer=layer,
-                port_names=(section2.port_names[0], section1.port_names[1]),
-                port_types=(section2.port_types[0], section1.port_types[1]),
-                name=alias,
-                hidden=hidden,
+        if width_type == "linear":
+            width_fun = _linear_transition(width1, width2)
+        elif width_type == "sine":
+            width_fun = _sinusoidal_transition(width1, width2)
+        elif width_type == "parabolic":
+            width_fun = _parabolic_transition(width1, width2)
+        else:
+            raise ValueError(
+                f"width_type={width_type!r} must be {'sine','linear','parabolic'}"
             )
-            sections.append(s)
+
+        if section1.layer != section2.layer:
+            hidden = True
+            layer1 = get_layer(section1.layer)
+            layer2 = get_layer(section2.layer)
+            layer = (layer1, layer2)
+        else:
+            hidden = False
+            layer = get_layer(section1.layer)
+
+        s = Section(
+            width=width_fun,
+            offset=offset_fun,
+            layer=layer,
+            port_names=(section2.port_names[0], section1.port_names[1]),
+            port_types=(section2.port_types[0], section1.port_types[1]),
+            name=section1.name,
+            hidden=hidden,
+        )
+        sections.append(s)
 
     return Transition(
         cross_section1=X1,
@@ -597,7 +709,7 @@ def extrude(
     """Returns Component extruding a Path with a cross_section.
 
     A path can be extruded using any CrossSection returning a Component
-    The CrossSection defines the layer numbers, widths and offsetts
+    The CrossSection defines the layer numbers, widths and offsets
 
     Args:
         p: a path is a list of points (arc, straight, euler).
@@ -791,8 +903,8 @@ def extrude(
                     width=port_width,
                     orientation=port_orientation,
                     center=center,
-                    cross_section=x.cross_sections[0]
-                    if hasattr(x, "cross_sections")
+                    cross_section=x.cross_section1
+                    if hasattr(x, "cross_section1")
                     else x,
                     shear_angle=shear_angle_start,
                 )
@@ -819,8 +931,8 @@ def extrude(
                     width=port_width,
                     center=center,
                     orientation=port_orientation,
-                    cross_section=x.cross_sections[1]
-                    if hasattr(x, "cross_sections")
+                    cross_section=x.cross_section2
+                    if hasattr(x, "cross_section2")
                     else x,
                     shear_angle=shear_angle_end,
                 )
@@ -866,6 +978,7 @@ def _cut_path_with_ray(
 ) -> np.ndarray:
     """Cuts or extends a path given a point and angle to project."""
     import shapely.geometry as sg
+    import shapely.ops
 
     # a distance to approximate infinity to find ray-segment intersections
     far_distance = 10000
@@ -905,7 +1018,8 @@ def _cut_path_with_ray(
             intersection = intersections[i]
         distance = ls.project(intersection)
         distances.append(distance)
-    # when trimming the start, start counting at the intersection point, then add all subsequent points
+    # when trimming the start, start counting at the intersection point, then
+    # add all subsequent points
     points = [np.array(intersections[0].coords[0])]
     for point in path[1:-1]:
         if distances[0] < ls.project(sg.Point(point)) < distances[1]:
@@ -914,13 +1028,19 @@ def _cut_path_with_ray(
     return np.array(points)
 
 
-def arc(radius: float = 10.0, angle: float = 90, npoints: int = 720) -> Path:
+def arc(
+    radius: float = 10.0,
+    angle: float = 90,
+    npoints: int = 720,
+    start_angle: Optional[float] = -90,
+) -> Path:
     """Returns a radial arc.
 
     Args:
         radius: minimum radius of curvature.
         angle: total angle of the curve.
         npoints: Number of points used per 360 degrees.
+        start_angle: initial angle of the curve for drawing, default -90 degrees.
 
     .. plot::
         :include-source:
@@ -932,7 +1052,9 @@ def arc(radius: float = 10.0, angle: float = 90, npoints: int = 720) -> Path:
 
     """
     npoints = abs(int(npoints * angle / 360))
-    t = np.linspace(-90 * np.pi / 180, (angle - 90) * np.pi / 180, npoints)
+    t = np.linspace(
+        start_angle * np.pi / 180, (angle + start_angle) * np.pi / 180, npoints
+    )
     x = radius * np.cos(t)
     y = radius * (np.sin(t) + 1)
     points = np.array((x, y)).T * np.sign(angle)
@@ -940,19 +1062,19 @@ def arc(radius: float = 10.0, angle: float = 90, npoints: int = 720) -> Path:
     P = Path()
     # Manually add points & adjust start and end angles
     P.points = points
-    P.start_angle = 0
-    P.end_angle = angle
+    P.start_angle = start_angle + 90
+    P.end_angle = start_angle + angle + 90
     return P
 
 
 def _cumtrapz(x):
-    """Numpy-based implementation of the cumulative trapezoidal integration
-    function usually found in scipy (scipy.integrate.cumtrapz)"""
+    """Numpy-based implementation of the cumulative trapezoidal integration \
+    function usually found in scipy (scipy.integrate.cumtrapz)."""
     return np.cumsum((x[1:] + x[:-1]) / 2)
 
 
 def _fresnel(R0, s, num_pts, n_iter=8):
-    """Fresnel integral using a series expansion"""
+    """Fresnel integral using a series expansion."""
     t = np.linspace(0, s / (np.sqrt(2) * R0), num_pts)
     x = np.zeros(num_pts)
     y = np.zeros(num_pts)
@@ -1020,11 +1142,20 @@ def euler(
     num_pts_euler = int(np.round(sp / (s0 / 2) * npoints))
     num_pts_arc = npoints - num_pts_euler
 
-    xbend1, ybend1 = _fresnel(R0, sp, num_pts_euler)
-    xp, yp = xbend1[-1], ybend1[-1]
+    # Ensure a minimum of 2 points for each euler/arc section
+    if npoints <= 2:
+        num_pts_euler = 0
+        num_pts_arc = 2
 
-    dx = xp - Rp * np.sin(p * alpha / 2)
-    dy = yp - Rp * (1 - np.cos(p * alpha / 2))
+    if num_pts_euler > 0:
+        xbend1, ybend1 = _fresnel(R0, sp, num_pts_euler)
+        xp, yp = xbend1[-1], ybend1[-1]
+        dx = xp - Rp * np.sin(p * alpha / 2)
+        dy = yp - Rp * (1 - np.cos(p * alpha / 2))
+    else:
+        xbend1 = ybend1 = np.asfarray([])
+        dx = 0
+        dy = 0
 
     s = np.linspace(sp, s0 / 2, num_pts_arc)
     xbend2 = Rp * np.sin((s - sp) / Rp + p * alpha / 2) + dx
@@ -1143,6 +1274,7 @@ def smooth(
         points: array-like[N][2] List of waypoints for the path to follow.
         radius: radius of curvature, passed to `bend`.
         bend: bend function that returns a path that round corners.
+        npoints: Number of points used per 360 degrees for the bend.
         kwargs: Extra keyword arguments that will be passed to `bend`.
 
     .. plot::
@@ -1166,7 +1298,7 @@ def smooth(
     if np.any(np.abs(np.abs(dtheta) - 180) < 1e-6):
         raise ValueError(
             "smooth() received points which double-back on themselves"
-            + "--turns cannot be computed when going forwards then exactly backwards."
+            "--turns cannot be computed when going forwards then exactly backwards."
         )
 
     # FIXME add caching
@@ -1278,7 +1410,8 @@ def _demo_variable_width() -> None:
 
 def _my_custom_offset_fun(t):
     # Note: Custom width/offset functions MUST be vectorizable--you must be able
-    # to call them with an array input like my_custom_offset_fun([0, 0.1, 0.2, 0.3, 0.4])
+    # to call them with an array input like my_custom_offset_fun([0, 0.1, 0.2,
+    # 0.3, 0.4])
     num_periods = 3
     return 3 + np.cos(2 * np.pi * t * num_periods)
 
@@ -1300,14 +1433,9 @@ if __name__ == "__main__":
     import numpy as np
 
     points = np.array([(20, 10), (40, 10), (20, 40), (50, 40), (50, 20), (70, 20)])
-    from phidl.path import euler
 
-    p = smooth(
-        points=points,
-        radius=2,
-        bend=euler,
-        use_eff=False,
-    )
+    p = smooth(points=points)
+    # p = arc(start_angle=0)
     c = p.extrude(layer=(1, 0), width=0.1)
 
     # p = straight()

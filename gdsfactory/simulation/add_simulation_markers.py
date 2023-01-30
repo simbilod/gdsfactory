@@ -1,4 +1,6 @@
 """Returns component with simulation markers."""
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
@@ -8,7 +10,8 @@ from gdsfactory.add_pins import add_pin_rectangle
 from gdsfactory.component import Component
 from gdsfactory.components.bend_circular import bend_circular
 from gdsfactory.pdk import get_layer_stack
-from gdsfactory.types import ComponentSpec, Layer, LayerLevel, LayerSpec
+from gdsfactory.technology import LayerLevel
+from gdsfactory.types import ComponentSpec, Layer, LayerSpec
 
 
 @gf.cell

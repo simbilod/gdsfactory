@@ -1,4 +1,4 @@
-"""Write DRC rule decks in klayout.
+"""Write DRC rule decks in KLayout.
 
 TODO:
 - define derived layers (composed rules)
@@ -9,6 +9,8 @@ More DRC examples:
 - https://github.com/usnistgov/SOEN-PDK/tree/master/tech/OLMAC
 - https://github.com/google/globalfoundries-pdk-libs-gf180mcu_fd_pr/tree/main/rules/klayout
 """
+
+from __future__ import annotations
 
 import pathlib
 from dataclasses import asdict, is_dataclass
@@ -30,14 +32,14 @@ def rule_min_width_or_space(width: float, space: float, layer: str) -> str:
     error = f"{layer} min width {width}um or min space {space}um"
     return (
         f"{layer}.drc((width < {width}) | (space < {space}))"
-        f".output('{error}', '{error}')"
+        f".output({error!r}, {error!r})"
     )
 
 
 def rule_not_inside(layer: str, not_inside: str) -> str:
     """Checks for that a layer is not inside another layer."""
     error = f"{layer} not inside {not_inside}"
-    return f"{layer}.not_inside({not_inside})" f".output('{error}', '{error}')"
+    return f"{layer}.not_inside({not_inside})" f".output({error!r}, {error!r})"
 
 
 def rule_width(value: float, layer: str, angle_limit: float = 90) -> str:
@@ -46,7 +48,7 @@ def rule_width(value: float, layer: str, angle_limit: float = 90) -> str:
     error = f"{layer} {category} {value}um"
     return (
         f"{layer}.{category}({value}, angle_limit({angle_limit}))"
-        f".output('{error}', '{error}')"
+        f".output({error!r}, {error!r})"
     )
 
 
@@ -56,14 +58,14 @@ def rule_space(value: float, layer: str, angle_limit: float = 90) -> str:
     error = f"{layer} {category} {value}um"
     return (
         f"{layer}.{category}({value}, angle_limit({angle_limit}))"
-        f".output('{error}', '{error}')"
+        f".output({error!r}, {error!r})"
     )
 
 
 def rule_separation(value: float, layer1: str, layer2: str) -> str:
     """Min space between different layers."""
     error = f"min {layer1} {layer2} separation {value}um"
-    return f"{layer1}.separation({layer2}, {value})" f".output('{error}', '{error}')"
+    return f"{layer1}.separation({layer2}, {value}).output({error!r}, {error!r})"
 
 
 def rule_enclosing(
@@ -73,7 +75,7 @@ def rule_enclosing(
     error = f"{layer1} enclosing {layer2} by {value}um"
     return (
         f"{layer1}.enclosing({layer2}, angle_limit({angle_limit}), {value})"
-        f".output('{error}', '{error}')"
+        f".output({error!r}, {error!r})"
     )
 
 
@@ -130,7 +132,7 @@ end
 
 
 def write_layer_definition(layers: Dict[str, Layer]) -> List[str]:
-    """Returns layers definition script for klayout.
+    """Returns layers definition script for KLayout.
 
     Args:
         layers: layer definitions can be dict, dataclass or pydantic BaseModel.
@@ -142,7 +144,7 @@ def write_layer_definition(layers: Dict[str, Layer]) -> List[str]:
 
 
 def write_drc_deck(rules: List[str], layers: Dict[str, Layer]) -> str:
-    """Returns drc_rule_deck for klayout.
+    """Returns drc_rule_deck for KLayout.
 
     based on https://github.com/klayoutmatthias/si4all
 
@@ -173,7 +175,7 @@ def write_drc_deck_macro(
     tile_borders: Optional[int] = None,
     **kwargs,
 ) -> str:
-    """Write klayout DRC macro.
+    """Write KLayout DRC macro.
 
     You can customize the shortcut to run the DRC macro from the Klayout GUI.
 
@@ -182,8 +184,8 @@ def write_drc_deck_macro(
         layers: layer definitions can be dict or dataclass.
         name: drc rule deck name.
         filepath: Optional macro path (defaults to .klayout/drc/name.lydrc).
-        shortcut: to run macro from klayout GUI.
-        mode: tiled, default or deep (hiearchical).
+        shortcut: to run macro from KLayout GUI.
+        mode: tiled, default or deep (hierarchical).
         threads: number of threads.
         tile_size: in um for tile mode.
         tile_borders: sides for each. Defaults None to automatic.
@@ -206,7 +208,7 @@ def write_drc_deck_macro(
         - predictable runtime and and memory footprint
     - deep
         - hierarchical mode
-        - preserves hierarchichy in many cases
+        - preserves hierarchy in many cases
         - does not predictably scale with number of CPUs
         - experimental (either very fast of very slow)
         - mainly used for LVS layer preparation

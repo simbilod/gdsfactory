@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 import tempfile
 from typing import Dict, Optional, Union
@@ -11,7 +13,8 @@ from gdsfactory.simulation.gmeep.get_material import get_material
 from gdsfactory.simulation.gmeep.get_meep_geometry import (
     get_meep_geometry_from_cross_section,
 )
-from gdsfactory.types import CrossSectionSpec, LayerStack
+from gdsfactory.technology import LayerStack
+from gdsfactory.types import CrossSectionSpec
 
 mpb.Verbosity(0)
 

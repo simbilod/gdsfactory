@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Dict, Iterator, Tuple
 
 import matplotlib.pyplot as plt
@@ -31,14 +33,14 @@ def solve_thermal(
     """Thermal simulation.
 
     Args:
-        mesh_filename: Name of the mesh to load
-        thermal_conductivity: thermal conductivity in W/m‧K
-        specific_conductivity: specific conductivity in S/m
+        mesh_filename: Name of the mesh to load.
+        thermal_conductivity: thermal conductivity in W/m‧K.
+        specific_conductivity: specific conductivity in S/m.
         thermal_diffusivity:
-        currents: current flowing through the layer in A
+        currents: current flowing through the layer in A.
 
     Returns:
-        nothing yet, WIP
+        nothing yet, WIP.
     """
     mesh = skfem.Mesh.load(mesh_filename)
 
@@ -215,10 +217,10 @@ if __name__ == "__main__":
     import gdsfactory as gf
     from gdsfactory.simulation.gmsh.mesh2D import mesh2D
 
-    gf.tech.LAYER_STACK.layers["heater"].thickness = 0.13
-    gf.tech.LAYER_STACK.layers["heater"].zmin = 2.2
-    print(gf.tech.LAYER_STACK.layers.keys())
-    # gf.tech.LAYER_STACK.layers["core"].thickness = 2
+    gf.generic_tech.LAYER_STACK.layers["heater"].thickness = 0.13
+    gf.generic_tech.LAYER_STACK.layers["heater"].zmin = 2.2
+    print(gf.generic_tech.LAYER_STACK.layers.keys())
+    # gf.generic_tech.LAYER_STACK.layers["core"].thickness = 2
 
     heater1 = gf.components.straight_heater_metal(length=50, heater_width=2)
     heater2 = gf.components.straight_heater_metal(length=50, heater_width=2).move(

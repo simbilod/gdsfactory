@@ -9,7 +9,9 @@ Gdsfactory
    git
    workflow
    notebooks
-   notebooks_netlist
+   sdl
+   plugins_optimization
+   plugins_mesh
    plugins_process
    plugins_mode_solver
    plugins_fdtd

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from typing import Optional
 
 import gdsfactory as gf
 from gdsfactory.components.bend_euler import bend_euler
 from gdsfactory.components.coupler_ring import coupler_ring as _coupler_ring
-from gdsfactory.components.straight import straight as _straight
+from gdsfactory.components.straight import straight
 from gdsfactory.components.via_stack import via_stack_heater_m3
 from gdsfactory.types import ComponentSpec, CrossSectionSpec, Float2
 
@@ -17,14 +19,13 @@ def ring_single_heater(
     length_x: float = 4.0,
     length_y: float = 0.6,
     coupler_ring: ComponentSpec = _coupler_ring,
-    straight: ComponentSpec = _straight,
     bend: ComponentSpec = bend_euler,
     cross_section_waveguide_heater: CrossSectionSpec = "strip_heater_metal",
     cross_section: CrossSectionSpec = "strip",
     via_stack: ComponentSpec = via_stack_heater_m3_mini,
     port_orientation: Optional[float] = 90,
     via_stack_offset: Float2 = (0, 0),
-    **kwargs
+    **kwargs,
 ) -> gf.Component:
     """Returns a single ring with heater on top.
 
@@ -37,7 +38,6 @@ def ring_single_heater(
         length_x: ring coupler length.
         length_y: vertical straight length.
         coupler_ring: ring coupler function.
-        straight: straight function.
         bend: 90 degrees bend function.
         cross_section_waveguide_heater: for heater.
         cross_section: for regular waveguide.
@@ -66,20 +66,18 @@ def ring_single_heater(
         length_x=length_x,
         cross_section=cross_section,
         bend_cross_section=cross_section_waveguide_heater,
-        **kwargs
+        **kwargs,
     )
 
-    straight_side = gf.get_component(
-        straight,
+    straight_side = straight(
         length=length_y,
         cross_section=cross_section_waveguide_heater,
-        **kwargs
+        **kwargs,
     )
-    straight_top = gf.get_component(
-        straight,
+    straight_top = straight(
         length=length_x,
         cross_section=cross_section_waveguide_heater,
-        **kwargs
+        **kwargs,
     )
 
     bend = gf.get_component(
@@ -121,8 +119,10 @@ def ring_single_heater(
 
 if __name__ == "__main__":
     c = ring_single_heater(width=0.5, gap=1, layer=(2, 0), radius=10, length_y=1)
+    print(c.to_yaml())
+    # print(c.to_dict())
     c.show(show_subports=False)
-    c.pprint_ports()
+    # c.pprint_ports()
 
     # cc = gf.add_pins(c)
     # print(c.settings)

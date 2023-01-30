@@ -1,4 +1,6 @@
 """Returns simulation from component."""
+from __future__ import annotations
+
 import inspect
 import warnings
 from typing import Any, Dict, Optional, Union
@@ -14,7 +16,7 @@ from gdsfactory.simulation.gmeep.get_material import get_material
 from gdsfactory.simulation.gmeep.get_meep_geometry import (
     get_meep_geometry_from_component,
 )
-from gdsfactory.tech import LayerStack
+from gdsfactory.technology import LayerStack
 
 mp.verbosity(0)
 
@@ -161,9 +163,9 @@ def get_simulation(
         if extend_ports_length
         else component
     )
-    gf.show(component_extended)
 
-    component_extended.flatten()
+    component_extended.show()
+    component_extended = component_extended.flatten()
 
     # geometry_center = [component_extended.x, component_extended.y]
     # geometry_center = [0, 0]
@@ -301,7 +303,10 @@ settings_get_simulation = set(sig.parameters.keys()).union(settings_meep)
 
 
 if __name__ == "__main__":
-    c = gf.components.straight(length=2, width=0.5)
+    import matplotlib.pyplot as plt
+
+    c = gf.components.bend_circular()
+
     sim_dict = get_simulation(
         c,
         is_3d=False,
@@ -310,10 +315,11 @@ if __name__ == "__main__":
         # port_field_monitor_offset=-0.1,
         # port_margin=2.5,
     )
-    # sim.plot3D()
-    # sim.plot2D()  # plot top view (is_3D needs to be False)
-    # Plot monitor cross-section (is_3D needs to be True)
+    sim = sim_dict["sim"]
+    sim.plot2D()
+    plt.show()
 
+    # Plot monitor cross-section (is_3D needs to be True)
     # sim.init_sim()
     # eps_data = sim.get_epsilon()
 

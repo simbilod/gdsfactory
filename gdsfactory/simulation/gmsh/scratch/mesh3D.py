@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from typing import Dict, Optional, Tuple
 
 import pygmsh
 
 from gdsfactory.pdk import get_layer_stack
-from gdsfactory.tech import LayerStack
+from gdsfactory.technology import LayerStack
 from gdsfactory.types import ComponentOrReference, Layer
 
 
@@ -125,7 +127,8 @@ def mesh3D(
 
     # Features
     # blocks = []
-    for layer, polygons in component.get_polygons(by_spec=True).items():
+    # for layer, polygons in component.get_polygons(by_spec=True).items():
+    for layer in component.layers:
         if (
             layer not in exclude_layers
             and layer in layer_to_thickness
@@ -141,7 +144,6 @@ def mesh3D(
                 zmax_cell = zmax_layer
 
             # num_layers = int(height/refine_dict[layer])
-
             # i = 0
             # for polygon in polygons:
             #     points = [model.add_point([polygon_point[0], polygon_point[1], zmin_layer], mesh_size=refine_dict[layer]) for polygon_point in polygon]

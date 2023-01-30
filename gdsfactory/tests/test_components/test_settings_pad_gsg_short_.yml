@@ -15,9 +15,7 @@ settings:
     via_stack:
       function: rectangle
       settings:
-        layer:
-        - 49
-        - 0
+        layer: M3
   full:
     layer_metal: M3
     metal_spacing: 5.0
@@ -31,12 +29,9 @@ settings:
     via_stack:
       function: rectangle
       settings:
-        layer:
-        - 49
-        - 0
+        layer: M3
   function_name: pad_gsg_short
   info: {}
   info_version: 2
   module: gdsfactory.components.pad_gsg
   name: pad_gsg_short
-version: 0.0.1

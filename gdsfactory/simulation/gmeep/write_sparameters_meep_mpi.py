@@ -1,10 +1,9 @@
 """Compute and write Sparameters using Meep in MPI."""
 
+from __future__ import annotations
+
 import multiprocessing
-import os
 import pathlib
-import pickle
-import re
 import shlex
 import subprocess
 import sys
@@ -26,7 +25,7 @@ from gdsfactory.simulation.gmeep.write_sparameters_meep import (
     remove_simulation_kwargs,
     settings_write_sparameters_meep,
 )
-from gdsfactory.tech import LayerStack
+from gdsfactory.technology import LayerStack
 from gdsfactory.types import ComponentSpec, PathType
 
 ncores = multiprocessing.cpu_count()
@@ -37,14 +36,6 @@ temp_dir_default = Path(sparameters_path) / "temp"
 def _python() -> str:
     """Select correct python executable from current activated environment."""
     return sys.executable
-
-
-def _mpirun() -> str:
-    """Select correct mpirun executable from current activated environment."""
-    python = _python()
-    path, ext = os.path.splitext(python)
-    mpirun = re.sub("python$", "mpirun", path) + ext
-    return mpirun if os.path.exists(mpirun) else "mpirun"
 
 
 @pydantic.validate_arguments
@@ -163,46 +154,41 @@ def write_sparameters_meep_mpi(
     # Save all the simulation arguments for later retrieval
     temp_dir.mkdir(exist_ok=True, parents=True)
     tempfile = temp_dir / temp_file_str
-    parameters_file = tempfile.with_suffix(".pkl")
-    kwargs.update(filepath=str(filepath))
+    filepath_json = tempfile.with_suffix(".json")
+    logger.info(f"Write {filepath_json!r}")
 
-    parameters_dict = {
-        "component": component,
-        "layer_stack": layer_stack,
-        "overwrite": overwrite,
-    }
+    layer_stack_json = layer_stack.json()
+    filepath_json.write_text(layer_stack_json)
 
-    # Loop over kwargs
-    for key in kwargs:
-        parameters_dict[key] = kwargs[key]
-
-    with open(parameters_file, "wb") as outp:
-        pickle.dump(parameters_dict, outp, pickle.HIGHEST_PROTOCOL)
+    # Save component to disk through gds for gdstk compatibility
+    component_file = tempfile.with_suffix(".gds")
+    component.write_gds_with_metadata(component_file)
 
     # Write execution file
     script_lines = [
-        "import pickle\n",
+        "import pathlib\n",
         "from gdsfactory.simulation.gmeep import write_sparameters_meep\n\n",
-        'if __name__ == "__main__":\n\n',
-        f"\twith open(\"{parameters_file}\", 'rb') as inp:\n",
-        "\t\tparameters_dict = pickle.load(inp)\n\n" "\twrite_sparameters_meep(\n",
+        "from gdsfactory.read import import_gds\n",
+        "from gdsfactory.technology import LayerStack\n\n",
+        "if __name__ == '__main__':\n",
+        f"\tcomponent = import_gds({str(component_file)!r}, read_metadata=True)\n",
+        f"\tfilepath_json = pathlib.Path({str(filepath_json)!r})\n",
+        "\tlayer_stack = LayerStack.parse_raw(filepath_json.read_text())\n",
+        f"\twrite_sparameters_meep(component=component, overwrite={overwrite}, "
+        f"layer_stack=layer_stack, filepath={str(filepath)!r})",
     ]
-    script_lines.extend(
-        f'\t\t{key} = parameters_dict["{key}"],\n' for key in parameters_dict
-    )
 
-    script_lines.append("\t)")
     script_file = tempfile.with_suffix(".py")
     with open(script_file, "w") as script_file_obj:
         script_file_obj.writelines(script_lines)
-    command = f"{_mpirun()} -np {cores} {_python()} {script_file}"
+    command = f"mpirun -np {cores} {_python()} {script_file}"
     logger.info(command)
     logger.info(str(filepath))
 
     if live_output:
         import asyncio
 
-        from gdsfactory.async_utils import execute_and_stream_output
+        from gdsfactory.utils.async_utils import execute_and_stream_output
 
         asyncio.run(
             execute_and_stream_output(
@@ -244,6 +230,8 @@ write_sparameters_meep_mpi_1x1_bend90 = gf.partial(
 
 
 if __name__ == "__main__":
+    import numpy as np
+
     c1 = gf.components.straight(length=2.1)
     filepath = write_sparameters_meep_mpi(
         component=c1,
@@ -254,5 +242,8 @@ if __name__ == "__main__":
         live_output=True,
         # lazy_parallelism=True,
         lazy_parallelism=False,
+        # temp_dir = "./test/",
         # filepath="instance_dict.csv",
     )
+    sp = np.load(filepath)
+    print(list(sp.keys()))

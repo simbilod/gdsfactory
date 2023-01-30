@@ -1,4 +1,6 @@
 """Write Sparameters with Lumerical FDTD."""
+from __future__ import annotations
+
 import shutil
 import time
 from typing import Dict, Optional
@@ -8,14 +10,14 @@ import omegaconf
 
 import gdsfactory as gf
 from gdsfactory.config import __version__, logger
+from gdsfactory.materials import MaterialSpec
 from gdsfactory.pdk import get_layer_stack
 from gdsfactory.simulation.get_sparameters_path import (
     get_sparameters_path_lumerical as get_sparameters_path,
 )
-from gdsfactory.tech import (
+from gdsfactory.technology import (
     SIMULATION_SETTINGS_LUMERICAL_FDTD,
     LayerStack,
-    MaterialSpec,
     SimulationSettingsLumericalFdtd,
 )
 from gdsfactory.types import ComponentSpec, PathType

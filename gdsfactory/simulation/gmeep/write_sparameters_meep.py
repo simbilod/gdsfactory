@@ -1,5 +1,7 @@
 """Compute and write Sparameters using Meep."""
 
+from __future__ import annotations
+
 import inspect
 import multiprocessing
 import pathlib
@@ -17,6 +19,7 @@ import gdsfactory as gf
 from gdsfactory.component import Component
 from gdsfactory.config import logger
 from gdsfactory.pdk import get_layer_stack
+from gdsfactory.serialization import clean_value_json
 from gdsfactory.simulation import port_symmetries
 from gdsfactory.simulation.get_sparameters_path import (
     get_sparameters_path_meep as get_sparameters_path,
@@ -25,7 +28,7 @@ from gdsfactory.simulation.gmeep.get_simulation import (
     get_simulation,
     settings_get_simulation,
 )
-from gdsfactory.tech import LayerStack
+from gdsfactory.technology import LayerStack
 from gdsfactory.types import ComponentSpec, PathType, Port, PortSymmetries
 
 ncores = multiprocessing.cpu_count()
@@ -133,8 +136,12 @@ def write_sparameters_meep(
     xmargin_right: float = 0,
     ymargin_top: float = 0,
     ymargin_bot: float = 0,
+    decay_by: float = 1e-3,
+    is_3d: bool = False,
+    z: float = 0,
+    plot_args: Dict = None,
     **settings,
-) -> np.ndarray:
+) -> Dict:
     r"""Returns Sparameters and writes them to npz filepath.
 
     Simulates each time using a different input port (by default, all of them)
@@ -223,6 +230,10 @@ def write_sparameters_meep(
         ymargin: top and bottom distance from component to PML.
         ymargin_top: north distance from component to PML.
         ymargin_bot: south distance from component to PML.
+        is_3d: if True runs in 3D (much slower).
+        z: for 2D plot.
+        plot_args: if animate or not run, customization keyword arguments passed to
+          `plot2D()` (i.e. `labels`, `eps_parameters`, `boundary_parameters`, `field_parameters`, etc.)
 
     keyword Args:
         extend_ports_length: to extend ports beyond the PML (um).
@@ -230,7 +241,6 @@ def write_sparameters_meep(
         zmargin_bot: thickness for cladding below core (um).
         tpml: PML thickness (um).
         clad_material: material for cladding.
-        is_3d: if True runs in 3D (much slower).
         wavelength_start: wavelength min (um).
         wavelength_stop: wavelength max (um).
         wavelength_points: wavelength steps.
@@ -244,12 +254,14 @@ def write_sparameters_meep(
             or refractive index. dispersive materials have a wavelength dependent index.
 
     Returns:
-        sparameters in a pandas Dataframe (wavelengths, s11a, o1@0,o2@0, ...)
+        sparameters in a Dict (wavelengths, s11a, o1@0,o2@0, ...)
             where `a` is the angle in radians and `m` the module.
 
     """
     component = gf.get_component(component)
     layer_stack = layer_stack or get_layer_stack()
+
+    plot_args = plot_args or {}
 
     for setting in settings:
         if setting not in settings_get_simulation:
@@ -277,6 +289,7 @@ def write_sparameters_meep(
         ymargin_bot=ymargin_bot,
         xmargin_left=xmargin_left,
         xmargin_right=xmargin_right,
+        is_3d=is_3d,
         **settings,
     )
 
@@ -316,15 +329,26 @@ def write_sparameters_meep(
             port_margin=port_margin,
             port_monitor_offset=port_monitor_offset,
             port_source_offset=port_source_offset,
+            is_3d=is_3d,
             **settings,
         )
-        sim_dict["sim"].plot2D(plot_eps_flag=True)
-        return
+        sim = sim_dict["sim"]
+        if is_3d:
+            sim.plot2D(
+                output_plane=mp.Volume(
+                    size=mp.Vector3(sim.cell_size.x, sim.cell_size.y, 0),
+                    center=mp.Vector3(0, 0, z),
+                ),
+                **plot_args,
+            )
+        else:
+            sim.plot2D(plot_eps_flag=True, **plot_args)
+        return sim
 
     if filepath.exists():
         if not overwrite:
             logger.info(f"Simulation loaded from {filepath!r}")
-            return np.load(filepath)
+            return dict(np.load(filepath))
         elif overwrite:
             filepath.unlink()
 
@@ -346,9 +370,10 @@ def write_sparameters_meep(
         wavelength_start: float = wavelength_start,
         wavelength_stop: float = wavelength_stop,
         wavelength_points: int = wavelength_points,
-        dirpath: Path = dirpath,
         animate: bool = animate,
+        plot_args: Dict = plot_args,
         dispersive: bool = dispersive,
+        decay_by: float = decay_by,
         **settings,
     ) -> Dict:
         """Return Sparameter dict."""
@@ -364,6 +389,7 @@ def write_sparameters_meep(
             port_source_offset=port_source_offset,
             dispersive=dispersive,
             layer_stack=layer_stack,
+            is_3d=is_3d,
             **settings,
         )
 
@@ -373,21 +399,30 @@ def write_sparameters_meep(
         # print(sim.resolution)
 
         # Terminate when the area in the whole area decayed
-        termination = [mp.stop_when_energy_decayed(dt=50, decay_by=1e-3)]
+        termination = [mp.stop_when_energy_decayed(dt=50, decay_by=decay_by)]
 
         if animate:
-            sim.use_output_directory()
-            animate = mp.Animate2D(
-                sim,
-                fields=mp.Ez,
-                realtime=True,
-                field_parameters={
+
+            # Defaults for animation
+            if "field_parameters" not in plot_args:
+                plot_args["field_parameters"] = {
                     "alpha": 0.8,
                     "cmap": "RdBu",
                     "interpolation": "none",
-                },
-                eps_parameters={"contour": True},
-                normalize=True,
+                }
+            if "eps_parameters" not in plot_args:
+                plot_args["eps_parameters"] = {"contour": True}
+            if "fields" not in plot_args:
+                plot_args["fields"] = mp.Ez
+            if "realtime" not in plot_args:
+                plot_args["realtime"] = True
+            if "normalize" not in plot_args:
+                plot_args["normalize"] = True
+
+            sim.use_output_directory()
+            animate = mp.Animate2D(
+                sim,
+                **plot_args,
             )
             sim.run(mp.at_every(1, animate), until_after_sources=termination)
             animate.to_mp4(30, f"{component.name}_{port_source_name}.mp4")
@@ -396,12 +431,12 @@ def write_sparameters_meep(
 
         # Calculate mode overlaps
         # Get source monitor results
-        source_entering, source_exiting = parse_port_eigenmode_coeff(
+        source_entering, _ = parse_port_eigenmode_coeff(
             port_source_name, component.ports, sim_dict
         )
         # Get coefficients
         for port_name in port_names:
-            monitor_entering, monitor_exiting = parse_port_eigenmode_coeff(
+            _, monitor_exiting = parse_port_eigenmode_coeff(
                 port_name, component.ports, sim_dict
             )
             key = f"{port_name}@0,{port_source_name}@0"
@@ -452,7 +487,9 @@ def write_sparameters_meep(
             )
             np.savez_compressed(filepath, **sp)
             logger.info(f"Write simulation results to {filepath!r}")
-            filepath_sim_settings.write_text(OmegaConf.to_yaml(sim_settings))
+            filepath_sim_settings.write_text(
+                OmegaConf.to_yaml(clean_value_json(sim_settings))
+            )
             logger.info(f"Write simulation settings to {filepath_sim_settings!r}")
             return sp
         else:
@@ -505,16 +542,48 @@ settings_write_sparameters_meep = set(sig.parameters.keys()).union(
 )
 
 if __name__ == "__main__":
-    # from gdsfactory.simulation.add_simulation_markers import add_simulation_markers
-    import gdsfactory.simulation as sim
-
+    wavelength_start = 1.26
+    wavelength_stop = 1.36
+    sim_settings = dict(
+        wavelength_start=wavelength_start, wavelength_stop=wavelength_stop
+    )
+    # c = gf.components.mmi1x2(cross_section=gf.cross_section.strip)
     c = gf.components.straight(length=2)
+    import matplotlib.pyplot as plt
 
+    def func(x):
+        result = np.where(np.abs(x) > 1e-10, np.abs(x) ** 2, -10)
+        return np.log10(result, out=result, where=result > 0)
+
+    sp = write_sparameters_meep(
+        c,
+        run=True,
+        animate=True,
+        is_3d=False,
+        plot_args={
+            "eps_parameters": {"contour": True},
+            "field_parameters": {
+                "alpha": 0.8,
+                "cmap": "RdBu",
+                "interpolation": "none",
+                "post_process": func,
+            },
+            "realtime": False,
+        },
+        overwrite=True,
+        **sim_settings,
+    )
+    plt.show()
+
+    # from gdsfactory.simulation.add_simulation_markers import add_simulation_markers
+    # import gdsfactory.simulation as sim
+
+    # c = gf.components.straight(length=2)
     # c = gf.components.bend_euler(radius=3)
     # c = add_simulation_markers(c)
 
-    sp = write_sparameters_meep_1x1(c, run=True, is_3d=False)
-    sim.plot.plot_sparameters(sp)
+    # sp = write_sparameters_meep_1x1(c, run=True, is_3d=False)
+    # sim.plot.plot_sparameters(sp)
 
     # import matplotlib.pyplot as plt
     # plt.show()

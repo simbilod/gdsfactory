@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
 import gdsfactory as gf
@@ -17,7 +19,7 @@ def taper(
     with_bbox: bool = True,
     with_two_ports: bool = True,
     cross_section: CrossSectionSpec = "strip",
-    **kwargs
+    **kwargs,
 ) -> Component:
     """Linear taper.
 
@@ -237,7 +239,6 @@ def taper_strip_to_ridge_trenches(
     c.add_port(
         name="o2", center=(length, 0), width=width, orientation=0, layer=layer_wg
     )
-
     return c
 
 

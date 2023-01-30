@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -7,10 +9,11 @@ import numpy as np
 import gdsfactory as gf
 from gdsfactory.component import Component
 from gdsfactory.config import logger
+from gdsfactory.generic_tech import LAYER_STACK
 from gdsfactory.simulation.get_sparameters_path import (
     get_sparameters_path_lumerical as get_sparameters_path,
 )
-from gdsfactory.tech import LAYER_STACK, LayerStack
+from gdsfactory.technology import LayerStack
 
 
 def get_ports(line: str) -> Tuple[str, str]:
@@ -88,7 +91,7 @@ def read_sparameters_lumerical(
     layer_stack: LayerStack = LAYER_STACK,
     filepath: Optional[str] = None,
     numports: Optional[int] = None,
-    dirpath: Path = gf.CONFIG["sparameters"],
+    dirpath: Path = gf.PATH.sparameters,
     **kwargs,
 ) -> Tuple[List[str], np.array, np.ndarray]:
     r"""Returns Sparameters from Lumerical interconnect .DAT file.

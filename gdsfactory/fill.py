@@ -1,8 +1,13 @@
-"""Dummy fill to keep density constant."""
-import itertools
-from typing import Optional, Union
+"""Dummy fill to keep density constant.
 
-import gdspy
+Adapted from PHIDL https://github.com/amccaugh/phidl/ by Adam McCaughan
+"""
+from __future__ import annotations
+
+import itertools
+from typing import List, Optional, Union
+
+import gdstk
 import numpy as np
 from numpy import sqrt
 
@@ -24,9 +29,7 @@ def _loop_over(var):
     Args:
         var : int or float or list
             Variable to check for iterability.
-
     """
-
     return var if hasattr(var, "__iter__") else [var]
 
 
@@ -98,7 +101,7 @@ def _expand_raster(raster, distance=(4, 2)):
     )
     neighborhood[rr, cc] = 1
 
-    return morphology.binary_dilation(image=raster, selem=neighborhood)
+    return morphology.binary_dilation(image=raster, footprint=neighborhood)
 
 
 @cell
@@ -134,7 +137,7 @@ def fill_cell_rectangle(
             A.center = (0, 0)
             A = A.get_polygons()
             B = R.get_polygons()
-            p = gdspy.boolean(A, B, operation="not")
+            p = gdstk.boolean(A, B, operation="not")
             D.add_polygon(p, layer=layer)
         else:
             D.add_ref(R)
@@ -150,7 +153,7 @@ def fill_rectangle(
     include_layers: LayerSpecs = None,
     margin: float = 5.0,
     fill_densities: Union[float, Floats] = (0.5, 0.25, 0.7),
-    fill_inverted: bool = False,
+    fill_inverted: Optional[List[float]] = None,
     bbox: Optional[Float2] = None,
 ) -> Component:
     """Returns rectangular fill pattern and fills all empty areas.
@@ -199,15 +202,17 @@ def fill_rectangle(
     )
     F = Component()
 
-    if avoid_layers == "all":
-        exclude_polys = D.get_polygons(by_spec=False, depth=None)
-    else:
-        avoid_layers = [_parse_layer(layer) for layer in _loop_over(avoid_layers)]
-        exclude_polys = D.get_polygons(by_spec=True, depth=None)
+    avoid_layers = [_parse_layer(layer) for layer in _loop_over(avoid_layers)]
+    exclude_polys = D.get_polygons(by_spec=True, depth=None, as_array=False)
+
+    if avoid_layers:
         exclude_polys = {
             key: exclude_polys[key] for key in exclude_polys if key in avoid_layers
         }
-        exclude_polys = itertools.chain.from_iterable(exclude_polys.values())
+
+    exclude_polys = [
+        polygon.points for polygons in exclude_polys.values() for polygon in polygons
+    ]
 
     if include_layers is None:
         include_polys = []
@@ -236,9 +241,6 @@ def fill_rectangle(
         for s in sub_rasters:
             if s[0] == 0:
                 x, y = _raster_index_to_coords(i, j, bbox, fill_size[0], fill_size[1])
-                # F.add(gdspy.CellArray(ref_cell = fill_cell,
-                #                       columns = len(s), rows = 1,
-                #                       spacing = fill_size, ))
                 a = F.add_array(fill_cell, columns=len(s), rows=1, spacing=fill_size)
                 a.move((x, y))
             j += len(s)
@@ -249,59 +251,61 @@ def test_fill():
     import gdsfactory as gf
     from gdsfactory.difftest import difftest
 
-    c = gf.components.straight()
-    c = gf.add_padding_container(c, default=15)
-    c.unlock()
-    c << fill_rectangle(
+    c = gf.Component("test_fill")
+    wg = c << gf.components.straight()
+    c << gf.add_padding_container(wg.parent, default=15)
+    fill = fill_rectangle(
         c,
         fill_layers=((2, 0),),
-        # fill_densities=(1.0,),
-        fill_densities=0.5,
+        fill_densities=(1.0,),
+        # fill_densities=0.5,
         avoid_layers=((1, 0),),
         # bbox=(100.0, 100.0),
     )
+    c << fill
     difftest(c)
+    return c
 
 
 if __name__ == "__main__":
+    # c = test_fill()
+    # c.show()
+
     import gdsfactory as gf
 
-    c = gf.components.straight()
-    c = gf.add_padding_container(c, default=15)
-    c.unlock()
-    c << fill_rectangle(
-        c,
-        fill_layers=((2, 0),),
-        # fill_densities=(1.0,),
-        fill_densities=0.5,
-        # avoid_layers=((1, 0),),
-        # bbox=(100.0, 100.0),
-    )
-    c.show(show_ports=True)
-
+    # c = gf.components.straight()
+    # c = gf.add_padding_container(c, default=15)
+    # c << fill_rectangle(
+    #     c,
+    #     fill_layers=((2, 0),),
+    #     # fill_densities=(1.0,),
+    #     # fill_densities=0.5,
+    #     # avoid_layers=((1, 0),),
+    #     # bbox=(100.0, 100.0),
+    # )
+    # c.show(show_ports=True)
     # import gdsfactory as gf
     # coupler_lengths = [10, 20, 30, 40, 50, 60, 70, 80]
     # coupler_gaps = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     # delta_lengths = [10, 100, 200, 300, 400, 500, 500]
-
     # mzi = gf.components.mzi_lattice(
     #     coupler_lengths=coupler_lengths,
     #     coupler_gaps=coupler_gaps,
     #     delta_lengths=delta_lengths,
     # )
-
     # # Add fill
-    # c = gf.Component("component_with_fill")
-    # layers = [(1, 0)]
-    # fill_size = [0.5, 0.5]
+    mzi = gf.components.mzi()
+    c = gf.Component("component_with_fill")
+    layers = [(1, 0)]
+    fill_size = [0.5, 0.5]
 
-    # c << gf.fill_rectangle(
-    #     mzi,
-    #     fill_size=fill_size,
-    #     fill_layers=layers,
-    #     margin=5,
-    #     fill_densities=[0.8] * len(layers),
-    #     avoid_layers=layers,
-    # )
-    # c << mzi
-    # c.show(show_ports=True)
+    c << gf.fill_rectangle(
+        mzi,
+        fill_size=fill_size,
+        fill_layers=layers,
+        margin=5,
+        fill_densities=[0.8] * len(layers),
+        avoid_layers=layers,
+    )
+    c << mzi
+    c.show(show_ports=True)

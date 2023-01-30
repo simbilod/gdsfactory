@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import pathlib
 from copy import deepcopy
@@ -8,9 +10,9 @@ from typing import Optional
 import numpy as np
 
 import gdsfactory as gf
+from gdsfactory.generic_tech import LAYER_STACK
 from gdsfactory.name import clean_value
 from gdsfactory.pdk import get_sparameters_path
-from gdsfactory.tech import LAYER_STACK
 from gdsfactory.types import ComponentSpec
 
 
@@ -62,6 +64,8 @@ def _get_sparameters_data(**kwargs) -> np.ndarray:
     return np.load(filepath)
 
 
+get_sparameters_path_meow = partial(_get_sparameters_path, tool="meow")
+
 get_sparameters_path_meep = partial(_get_sparameters_path, tool="meep")
 get_sparameters_path_lumerical = partial(_get_sparameters_path, tool="lumerical")
 get_sparameters_path_tidy3d = partial(_get_sparameters_path, tool="tidy3d")
@@ -102,7 +106,10 @@ if __name__ == "__main__":
 
     c = gf.components.mmi1x2()
     p = get_sparameters_path_lumerical(c)
-    print(p)
+
+    sp = np.load(p)
+    spd = dict(sp)
+    print(spd)
 
     # test_get_sparameters_path(test=False)
     # test_get_sparameters_path(test=True)

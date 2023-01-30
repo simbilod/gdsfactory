@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Tuple, Union
 
@@ -20,6 +22,7 @@ def check_width(
 
     """
     import klayout.db as pya
+
     from gdsfactory.component import Component
 
     if isinstance(gdspath, Component):
@@ -60,7 +63,7 @@ def demo() -> None:
 
 if __name__ == "__main__":
     import gdsfactory as gf
-    from gdsfactory.tech import LAYER
+    from gdsfactory.generic_tech import LAYER
 
     w = 0.12
     c = gf.components.rectangle(size=(w, w), layer=LAYER.WG)
