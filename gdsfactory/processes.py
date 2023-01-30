@@ -16,7 +16,7 @@ class Lithography:
         |________________|                    |________________|        
                 
         0       1        2         3          0       1        2         3
-
+w
 
     if argument_layers is provided to layers_or, for those layers:
 
