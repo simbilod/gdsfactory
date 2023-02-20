@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.LayerSpec
+============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: LayerSpec

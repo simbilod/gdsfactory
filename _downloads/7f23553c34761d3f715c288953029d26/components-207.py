@@ -1,0 +1,6 @@
+import gdsfactory as gf
+
+PDK = gf.get_generic_pdk()
+PDK.activate()
+c = gf.components.taper_parabolic(length=20, width1=0.5, width2=5.0, exp=0.5, npoints=100, layer='WG')
+c.plot_matplotlib()

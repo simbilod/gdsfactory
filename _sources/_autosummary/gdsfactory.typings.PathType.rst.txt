@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.PathType
+===========================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: PathType

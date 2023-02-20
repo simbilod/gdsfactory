@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.NetlistModel
+===============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autopydantic_model:: NetlistModel

@@ -1,0 +1,36 @@
+﻿gdsfactory.typings.StepAllAngle
+===============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autoclass:: StepAllAngle
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~StepAllAngle.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~StepAllAngle.connector
+      ~StepAllAngle.cross_section
+      ~StepAllAngle.ds
+      ~StepAllAngle.dx
+      ~StepAllAngle.dy
+      ~StepAllAngle.exit_angle
+      ~StepAllAngle.separation
+      ~StepAllAngle.x
+      ~StepAllAngle.y
+   
+   

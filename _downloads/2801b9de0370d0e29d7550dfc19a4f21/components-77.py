@@ -1,0 +1,6 @@
+import gdsfactory as gf
+
+PDK = gf.get_generic_pdk()
+PDK.activate()
+c = gf.components.disk(radius=10.0, gap=0.2, wrap_angle_deg=180.0, parity=1, cross_section='strip')
+c.plot_matplotlib()

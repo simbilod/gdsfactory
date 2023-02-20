@@ -1,0 +1,6 @@
+﻿gdsfactory.simulation.fem.mode\_solver.compute\_cross\_section\_modes
+=====================================================================
+
+.. currentmodule:: gdsfactory.simulation.fem.mode_solver
+
+.. autofunction:: compute_cross_section_modes

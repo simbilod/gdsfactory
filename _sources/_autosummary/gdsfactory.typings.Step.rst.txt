@@ -1,0 +1,31 @@
+﻿gdsfactory.typings.Step
+=======================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autoclass:: Step
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~Step.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~Step.dx
+      ~Step.dy
+      ~Step.x
+      ~Step.y
+   
+   

@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.ComponentFactory
+===================================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: ComponentFactory

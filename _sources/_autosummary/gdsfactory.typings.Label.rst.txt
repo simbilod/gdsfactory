@@ -1,0 +1,45 @@
+﻿gdsfactory.typings.Label
+========================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autoclass:: Label
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~Label.__init__
+      ~Label.apply_repetition
+      ~Label.copy
+      ~Label.delete_gds_property
+      ~Label.delete_property
+      ~Label.get_gds_property
+      ~Label.get_property
+      ~Label.set_gds_property
+      ~Label.set_property
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~Label.anchor
+      ~Label.layer
+      ~Label.magnification
+      ~Label.origin
+      ~Label.properties
+      ~Label.repetition
+      ~Label.rotation
+      ~Label.text
+      ~Label.texttype
+      ~Label.x_reflection
+   
+   

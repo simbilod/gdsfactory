@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.Section
+==========================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autopydantic_model:: Section

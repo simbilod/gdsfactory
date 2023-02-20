@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.MaterialSpec
+===============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: MaterialSpec

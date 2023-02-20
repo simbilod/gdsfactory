@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.MultiCrossSectionAngleSpec
+=============================================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: MultiCrossSectionAngleSpec

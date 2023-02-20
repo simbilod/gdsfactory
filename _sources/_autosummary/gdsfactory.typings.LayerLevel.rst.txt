@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.LayerLevel
+=============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autopydantic_model:: LayerLevel

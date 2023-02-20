@@ -1,0 +1,6 @@
+﻿gdsfactory.routing.get\_bundle\_all\_angle
+==========================================
+
+.. currentmodule:: gdsfactory.routing
+
+.. autofunction:: get_bundle_all_angle

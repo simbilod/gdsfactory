@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.Anchor
+=========================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: Anchor

@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.Route
+========================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autopydantic_model:: Route

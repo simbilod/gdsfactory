@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.Layer
+========================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: Layer

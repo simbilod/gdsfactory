@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.RouteFactory
+===============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: RouteFactory

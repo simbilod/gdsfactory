@@ -1,0 +1,6 @@
+import gdsfactory as gf
+
+PDK = gf.get_generic_pdk()
+PDK.activate()
+c = gf.components.dbr(w1=0.475, w2=0.525, l1=0.159, l2=0.159, n=10, cross_section='strip')
+c.plot_matplotlib()

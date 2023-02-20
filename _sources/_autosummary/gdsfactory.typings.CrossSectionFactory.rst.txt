@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.CrossSectionFactory
+======================================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autodata:: CrossSectionFactory

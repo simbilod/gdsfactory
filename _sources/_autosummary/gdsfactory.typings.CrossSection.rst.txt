@@ -1,0 +1,6 @@
+﻿gdsfactory.typings.CrossSection
+===============================
+
+.. currentmodule:: gdsfactory.typings
+
+.. autopydantic_model:: CrossSection
