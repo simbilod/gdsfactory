@@ -5,6 +5,7 @@ from srim import TRIM
 import os
 from itertools import repeat
 import pandas as pd
+import numpy as np
 
 
 def fragment(step, total):
@@ -130,10 +131,131 @@ def read_ranges(save_path):
     return pd.concat(dataframes).rename(columns={1: "z", 2: "x", 3: "y"}).reset_index()
 
 
+def bin_ranges3D(
+    save_path,
+    rplane=0.5,
+    rnum=101,
+    zmin=0,
+    zmax=0.5,
+    znum=501,
+    direction="r",
+    smooth=True,
+    smooth_window_r=5,
+    smooth_poly_r=2,
+    smooth_window_z=20,
+    smooth_poly_z=2,
+):
+    """Bins the implant results into 3D bins.
+
+    Also assumes an ion fluence in ions/cm2.
+
+    Arguments:
+        save_path: directory with SRIM data
+        bins: for histogramming, [0] is in-plane and [1] vertically
+        rplane: extent of bins in the plane, from -rplane to rplane (0 is mask edge)
+        rnum: number of planar coordinates bins
+        zmin: minimum vertical bin (0 is wafer beginning)
+        zmax: maximum vertical bin (positive to go deeper in the wafer)
+        znum: number of vertical bins
+        direction: either "x", "-x", "y", or "r":
+                            x assume tilt aims under the mask
+                            -x assumes tilt away from the mask (flip distribution about x-axis)
+                            y assumes perpendicular to tilt direction
+                            r assumes rotation of the sample, and uses a weighted distribution of the x and y directions:
+                                25% +x (tilt toward mask)
+                                25% -x (tilt away from mask)
+                                50% y (perpendicular to tilt)
+        smooth: if True, applies a Savitsky-Golay filter on the distributions to smooth
+        smooth_window: window argument for filter (in r or z direction)
+        smooth_poly: polynomial argument for filter (in r or z direction)
+
+    Returns
+        dr_dist: lateral implant distribution about mask edge
+        dz_dist: vertical implant distribution about mask edge
+    """
+    a_to_um = 1e4
+    df = read_ranges(save_path)
+
+    # N-D histogram
+    bins_r = np.linspace(-rplane, rplane, rnum) * a_to_um
+    bins_z = np.linspace(zmin, zmax, znum) * a_to_um
+    H, edges = np.histogramdd(df.to_numpy()[:, 1:], [bins_r, bins_r, bins_z])
+
+    return H, edges
+
+
+# def calculate_masked_profile(save_path,
+#                                 rplane = 0.5,
+#                                 rnum = 101,
+#                                 zmin = 0,
+#                                 zmax = 0.5,
+#                                 znum = 501,
+#                                 direction="r",
+#                                 smooth = True,
+#                                 smooth_window_r = 5,
+#                                 smooth_poly_r = 2,
+#                                 smooth_window_z = 20,
+#                                 smooth_poly_z = 2,
+#                             ):
+#     """Uses the source implant results to calculate the implant profile at the edge of a mask.
+
+#     Also assumes an ion fluence in ions/cm2.
+
+#     Arguments:
+#         save_path: directory with SRIM data
+#         bins: for histogramming, [0] is in-plane and [1] vertically
+#         rplane: extent of bins in the plane, from -rplane to rplane (0 is mask edge)
+#         rnum: number of planar coordinates bins
+#         zmin: minimum vertical bin (0 is wafer beginning)
+#         zmax: maximum vertical bin (positive to go deeper in the wafer)
+#         znum: number of vertical bins
+#         direction: either "x", "-x", "y", or "r":
+#                             x assume tilt aims under the mask
+#                             -x assumes tilt away from the mask (flip distribution about x-axis)
+#                             y assumes perpendicular to tilt direction
+#                             r assumes rotation of the sample, and uses a weighted distribution of the x and y directions:
+#                                 25% +x (tilt toward mask)
+#                                 25% -x (tilt away from mask)
+#                                 50% y (perpendicular to tilt)
+#         smooth: if True, applies a Savitsky-Golay filter on the distributions to smooth
+#         smooth_window: window argument for filter (in r or z direction)
+#         smooth_poly: polynomial argument for filter (in r or z direction)
+
+#     Returns
+#         dr_dist: lateral implant distribution about mask edge
+#         dz_dist: vertical implant distribution about mask edge
+#     """
+#     a_to_um = 1E4
+#     df = read_ranges(save_path)
+#     bins_r = np.linspace(-rplane, rplane, rnum)
+#     bins_z = np.linspace(zmin, zmax, znum)
+#     # Create distribution vectors
+#     dx, x = np.histogram(df['x'], bins=bins_r * a_to_um)
+#     r = (x[1:] + x[:-1]) / 2
+#     dy, y = np.histogram(df['y'], bins=bins_r * a_to_um)
+#     dz, z = np.histogram(df['z'], bins=bins_z * a_to_um)
+#     dz = savgol_filter(dz, window_length=smooth_window_z, polyorder=smooth_poly_z) if smooth else dz
+#     z = (z[1:] + z[:-1]) / 2
+#     if direction == 'x':
+#         dr = dx
+#     elif direction == '-x':
+#         dr = np.flip(dx)
+#     elif direction == 'y':
+#         dr = dy
+#     elif direction == 'r':
+#         dr = 0.5 * dy + 0.25 * dx + 0.25 * np.flip(dx)
+#     dr = savgol_filter(dr, window_length=smooth_window_r, polyorder=smooth_poly_r) if smooth else dr
+#     # Apply convolutions to lateral distributions
+#     r_dist = np.convolve(dr, np.heaviside(r, 0), mode='same')
+#     r_dist =
+#     # Weight vertical distributions according to lateral distribution
+#     z_dist = r_dist / np.max(r_dist) * dz[:,None]
+#     return r_dist, z_dist, r, z
+
+
 if __name__ == "__main__":
     from pathlib import Path
     from srim import Ion, Layer, Target
-    import matplotlib.pyplot as plt
 
     # Define implant
     energy = 1.0e5
@@ -180,7 +302,7 @@ if __name__ == "__main__":
     target = Target([soi, box])
 
     # Simulation parameters
-    overwrite = True
+    overwrite = False
 
     srim_executable_directory = Path("/home/bilodeaus/.wine/drive_c/SRIM")
     srim_data_directory = Path("./tmp/")
@@ -200,17 +322,28 @@ if __name__ == "__main__":
             srim_executable_directory=srim_executable_directory,
             ion=implant,
             target=target,
-            number_ions=10000,
+            number_ions=50000,
             save_path=srim_data_directory,
             trim_settings=trim_settings,
             step=1000,
-            cores=6,
+            cores=8,
         )
 
     df = read_ranges(srim_data_directory)
 
-    ax = df.plot.hist(column=["z"], bins=200, alpha=0.5, xlabel="z (A)", density=True)
-    ax = df.plot.hist(column=["z"], bins=100, alpha=0.5, xlabel="z (A)", density=True)
-    ax = df.plot.hist(column=["x"], bins=100, alpha=0.5, xlabel="x (A)", density=True)
-    ax = df.plot.hist(column=["y"], bins=100, alpha=0.5, xlabel="y (A)", density=True)
-    plt.show()
+    # ax = df.plot.hist(column=["z"], bins=200, alpha=0.5, xlabel="z (A)", density=True)
+    # ax = df.plot.hist(column=["z"], bins=100, alpha=0.5, xlabel="z (A)", density=True)
+    # ax = df.plot.hist(column=["x"], bins=100, alpha=0.5, xlabel="x (A)", density=True)
+    # ax = df.plot.hist(column=["y"], bins=100, alpha=0.5, xlabel="y (A)", density=True)
+    # plt.show()
+
+    H, edges = bin_ranges3D(srim_data_directory, smooth=True)
+    print(np.nonzero(H))
+
+    # View x=0 slice
+
+    # plt.plot(r, dr)
+    # plt.show()
+    # plt.plot(z, dz)
+    # # plt.plot(dz)
+    # plt.show()
