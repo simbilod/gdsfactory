@@ -189,6 +189,8 @@ class ImplantPhysical(Lithography):
         tilt (float): ion angle from out-of-plane axis. in degrees. If None, uses simulator default
         twist (float): ion angle from wafer "x-axis", in degrees. If None, uses simulator default
         rotation (float): if twist is None, toggle to split the dose 4-ways between 4 cardinal twist angles (simulates substrate rotation during implantation)
+        monte_carlo (bool): if True, uses MC implantation instead of analytical
+        cascades (bool): if True, uses full-cascades mode in MC simulation
     """
 
     ion: str
@@ -197,6 +199,8 @@ class ImplantPhysical(Lithography):
     tilt: float = None
     twist: float = None
     rotation: float = None
+    monte_carlo: bool = True
+    cascades: bool = False
 
 
 @dataclass(kw_only=True)
