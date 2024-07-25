@@ -105,6 +105,7 @@ class Lithography(ProcessStep):
         positive_tone (bool): whether to invert the resulting mask (False) or not (True)
         resist_thickness (float): resist mask thickness, used in some simulators
         planarization_height (float): height at which to "clip" the resist above the wafer
+        strip_resist: bool: if True, strips the resist after the step
     """
 
     layer: Layer | None = None
@@ -115,6 +116,7 @@ class Lithography(ProcessStep):
     resist_thickness: float | None = 0
     positive_tone: bool = True
     planarization_height: float = None
+    strip_resist: bool = True
 
 
 @dataclass(kw_only=True)
